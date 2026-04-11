@@ -1,115 +1,207 @@
-<main class="page-shell">
+<main class="page-shell" *ngIf="landing() as data">
   <section class="hero">
     <nav class="nav">
-      <div class="brand" aria-label="Fun Kids">
-        <span class="brand-mini-heart" aria-hidden="true"></span>
-        <span class="brand-mini-fun">Fun</span>
-        <span class="brand-mini-kids">Kids</span>
+      <div class="brand" aria-label="FunKids">
+        <span class="brand-mark">FK</span>
+        <span>{{ data.brand }}</span>
       </div>
-      <a class="nav-link" href="#actividades">Actividades</a>
+
+      <div class="nav-links">
+        <a class="nav-link" href="#beneficios">Beneficios</a>
+        <a class="nav-link" href="#comprar">Comprar tickets</a>
+      </div>
     </nav>
 
-    <div class="hero-content">
+    <div class="hero-grid">
       <div class="hero-copy">
-        <div class="logo-lockup" aria-label="Fun Kids Diversion y Sonrisas">
-          <div class="logo-top">
-            <span class="logo-heart" aria-hidden="true"></span>
-            <span class="logo-dot logo-dot-top" aria-hidden="true"></span>
-            <span class="logo-dot logo-dot-bottom" aria-hidden="true"></span>
-          </div>
-          <div class="logo-wordmark">
-            <span class="fun-word">Fun</span>
-            <span class="kids-word">Kids</span>
-            <span class="logo-smile" aria-hidden="true"></span>
-          </div>
-          <p class="logo-tagline">
-            <span class="tagline-pink">DIVERSION</span>
-            <span class="tagline-yellow">&amp;</span>
-            <span class="tagline-blue">SONRISAS</span>
-          </p>
-        </div>
-
-        <p class="eyebrow">Un espacio tierno, alegre y lleno de color</p>
-        <h1>Jugar, crear y compartir con la identidad visual de Fun Kids.</h1>
-        <p class="lead">
-          Experiencias pensadas para ninos y familias en una marca dulce,
-          cercana y luminosa, inspirada en tu logo original.
-        </p>
+        <p class="eyebrow">{{ data.hero.badge }}</p>
+        <h1>{{ data.hero.title }}</h1>
+        <p class="lead">{{ data.hero.description }}</p>
 
         <div class="hero-actions">
-          <a class="button primary" href="#contacto">Quiero saber mas</a>
-          <a class="button secondary" href="#actividades">Ver actividades</a>
+          <a class="button primary" href="#comprar">Comprar ahora</a>
+          <a class="button secondary" href="#preguntas">Como funciona</a>
+        </div>
+
+        <div class="hero-meta">
+          <article class="meta-card">
+            <span>Fecha sorteo</span>
+            <strong>{{ data.raffle.drawDate }}</strong>
+          </article>
+          <article class="meta-card">
+            <span>Valor ticket</span>
+            <strong>{{ data.raffle.ticketPrice | currency: 'CLP' : 'symbol-narrow' : '1.0-0' : 'es-CL' }}</strong>
+          </article>
+          <article class="meta-card">
+            <span>Tickets disponibles</span>
+            <strong>{{ data.raffle.remainingTickets }} / {{ data.raffle.totalTickets }}</strong>
+          </article>
         </div>
       </div>
 
-      <div class="hero-card" aria-hidden="true">
-        <div class="bubble bubble-yellow">Sonrisas</div>
-        <div class="bubble bubble-pink">Arte</div>
-        <div class="bubble bubble-blue">Juegos</div>
-        <div class="card-illustration">
-          <div class="halo halo-one"></div>
-          <div class="halo halo-two"></div>
-          <div class="sun"></div>
-          <div class="play-kid play-kid-left">
-            <span class="play-head"></span>
-            <span class="play-body"></span>
-          </div>
-          <div class="play-kid play-kid-right">
-            <span class="play-head"></span>
-            <span class="play-body"></span>
-          </div>
-          <div class="smile-arc"></div>
-          <div class="ground"></div>
+      <aside class="purchase-card" id="comprar">
+        <div class="purchase-card__header">
+          <p class="eyebrow subtle">Compra express o con cuenta</p>
+          <h2>{{ data.raffle.title }}</h2>
+          <p>Completa tus datos, elige cuántos tickets quieres y define cómo prefieres pagar.</p>
         </div>
-      </div>
+
+        <form [formGroup]="purchaseForm" (ngSubmit)="submitPurchase()" class="purchase-form">
+          <label class="field">
+            <span>Nombre completo</span>
+            <input type="text" formControlName="fullName" placeholder="Ej: Camila Soto" />
+            <small class="error" *ngIf="hasError('fullName', 'required') || hasError('fullName', 'minlength')">
+              Ingresa un nombre valido.
+            </small>
+          </label>
+
+          <label class="field">
+            <span>Email valido</span>
+            <input type="email" formControlName="email" placeholder="nombre@correo.cl" />
+            <small class="error" *ngIf="hasError('email', 'required') || hasError('email', 'email')">
+              Usa un email valido para confirmar tu compra.
+            </small>
+          </label>
+
+          <div class="field-grid">
+            <label class="field">
+              <span>Telefono</span>
+              <input type="tel" formControlName="phone" placeholder="+56 9 1234 5678" />
+            </label>
+
+            <label class="field">
+              <span>Tickets</span>
+              <input type="number" min="1" max="20" formControlName="ticketCount" />
+              <small class="error" *ngIf="hasError('ticketCount', 'min') || hasError('ticketCount', 'max')">
+                Puedes comprar entre 1 y 20 tickets.
+              </small>
+            </label>
+          </div>
+
+          <div class="toggle-row">
+            <label class="check-line">
+              <input type="checkbox" formControlName="wantsAccount" />
+              <span>Quiero registrarme para futuras compras</span>
+            </label>
+            <p>Si no marcas esta opcion, la compra se hace solo con tu email.</p>
+          </div>
+
+          <label class="field" *ngIf="purchaseForm.controls.wantsAccount.value">
+            <span>Contrasena</span>
+            <input type="password" formControlName="password" placeholder="Minimo 6 caracteres" />
+            <small class="error" *ngIf="hasError('password', 'required') || hasError('password', 'minlength')">
+              La contrasena debe tener al menos 6 caracteres.
+            </small>
+          </label>
+
+          <div class="payment-methods">
+            <p class="section-label">Medio de pago</p>
+            <label
+              class="payment-option"
+              *ngFor="let method of data.paymentMethods"
+              [class.is-selected]="purchaseForm.controls.paymentMethod.value === method.id"
+            >
+              <input type="radio" formControlName="paymentMethod" [value]="method.id" />
+              <span>
+                <strong>{{ method.name }}</strong>
+                <small>{{ method.description }}</small>
+              </span>
+            </label>
+          </div>
+
+          <label class="check-line legal">
+            <input type="checkbox" formControlName="acceptedTerms" />
+            <span>Acepto las bases legales y entiendo que la participacion queda activa al validar el pago.</span>
+          </label>
+          <small class="error" *ngIf="hasError('acceptedTerms', 'required')">
+            Debes aceptar las bases legales.
+          </small>
+
+          <div class="checkout-summary">
+            <div>
+              <span>Total</span>
+              <strong>{{ totalAmount() | currency: 'CLP' : 'symbol-narrow' : '1.0-0' : 'es-CL' }}</strong>
+            </div>
+            <div>
+              <span>Pago</span>
+              <strong>{{ selectedPaymentLabel() }}</strong>
+            </div>
+          </div>
+
+          <button class="button primary submit-button" type="submit" [disabled]="isSubmitting()">
+            {{ isSubmitting() ? 'Preparando pago...' : 'Continuar al pago' }}
+          </button>
+
+          <p class="helper-text">{{ data.raffle.legalDisclaimer }}</p>
+          <p class="error server-error" *ngIf="submitError()">{{ submitError() }}</p>
+        </form>
+
+        <section class="result-card" *ngIf="purchaseResult() as result">
+          <p class="eyebrow subtle">Compra iniciada</p>
+          <h3>{{ result.order.paymentLabel }}</h3>
+          <p>{{ result.message }}</p>
+          <p><strong>{{ result.participant.email }}</strong> recibira la confirmacion de pago.</p>
+          <p>Tickets asignados: {{ result.order.ticketNumbers.join(', ') }}</p>
+          <p>{{ result.nextStep }}</p>
+        </section>
+      </aside>
     </div>
   </section>
 
-  <section class="features" id="actividades">
-    @for (activity of activities; track activity.title) {
-      <article class="feature">
-        <h2>{{ activity.title }}</h2>
-        <p>{{ activity.description }}</p>
+  <section class="benefits" id="beneficios">
+    <article class="benefit" *ngFor="let highlight of data.highlights">
+      <p class="eyebrow subtle">Checkout FunKids</p>
+      <h2>{{ highlight.title }}</h2>
+      <p>{{ highlight.description }}</p>
+    </article>
+  </section>
+
+  <section class="process">
+    <div class="process-copy">
+      <p class="eyebrow">Flujo pensado para convertir</p>
+      <h2>Una landing que informa, resuelve dudas y lleva directo a pagar.</h2>
+      <p>
+        El sitio presenta el sorteo, explica la compra express o con registro, valida el email antes de continuar y
+        deja claro si el pago ira por Transbank by Haulmer o por Khipu.
+      </p>
+    </div>
+
+    <div class="process-steps">
+      <article>
+        <strong>1</strong>
+        <p>El cliente revisa el premio, fecha del sorteo y valor del ticket.</p>
       </article>
-    }
-  </section>
-
-  <section class="highlight">
-    <div class="highlight-copy">
-      <p class="eyebrow">Por que FunKids</p>
-      <h2>Simple, cercano y hecho para disfrutar juntos.</h2>
-      <p>
-        Una landing hecha en Angular conectada a un backend Nest para que el
-        proyecto pueda crecer sin rehacerse despues.
-      </p>
-    </div>
-
-    <div class="stats">
-      <div class="stat">
-        <strong>100%</strong>
-        <span>ambiente alegre</span>
-      </div>
-      <div class="stat">
-        <strong>3 areas</strong>
-        <span>juego, arte y familia</span>
-      </div>
-      <div class="stat">
-        <strong>1 base</strong>
-        <span>Angular + Nest lista para escalar</span>
-      </div>
+      <article>
+        <strong>2</strong>
+        <p>Completa su nombre, email valido y decide si quiere crear cuenta.</p>
+      </article>
+      <article>
+        <strong>3</strong>
+        <p>Selecciona Haulmer/Transbank o Khipu y avanza al pago.</p>
+      </article>
     </div>
   </section>
 
-  <section class="contact" id="contacto">
+  <section class="faq" id="preguntas">
+    <div class="faq-header">
+      <p class="eyebrow">Preguntas frecuentes</p>
+      <h2>Todo lo necesario para comprar sin friccion.</h2>
+    </div>
+
+    <div class="faq-grid">
+      <article class="faq-item" *ngFor="let faq of data.faqs">
+        <h3>{{ faq.question }}</h3>
+        <p>{{ faq.answer }}</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="contact">
     <div class="contact-card">
-      <p class="eyebrow">Conexion con backend</p>
-      <h2>{{ siteInfo?.message || 'Cargando informacion de FunKids...' }}</h2>
-      <p>
-        {{ siteInfo?.schedule || 'Esperando respuesta del backend Nest.' }}
-      </p>
-      <a class="button primary" [href]="'mailto:' + (siteInfo?.contactEmail || 'hola@funkids.cl')">
-        {{ siteInfo?.contactEmail || 'hola@funkids.cl' }}
-      </a>
+      <p class="eyebrow subtle">Contacto</p>
+      <h2>{{ data.contact.email }}</h2>
+      <p>{{ data.contact.schedule }}</p>
+      <a class="button secondary" [href]="'mailto:' + data.contact.email">Hablar con FunKids</a>
     </div>
   </section>
 </main>

@@ -1,11 +1,10 @@
 :root {
-  --fk-blue: #5fa8d9;
-  --fk-pink: #ea8cb1;
-  --fk-yellow: #f8c95f;
-  --fk-coral: #e45c6f;
-  --fk-plum: #8d5b92;
-  --fk-ink: #4f5876;
-  --fk-cream: #fffaf4;
+  --fk-red: #e85b5b;
+  --fk-orange: #ff9b57;
+  --fk-blue: #3d8bfd;
+  --fk-indigo: #5567d8;
+  --fk-ink: #27324a;
+  --fk-sand: #fff6eb;
 }
 
 * {
@@ -18,7 +17,12 @@ html {
 
 body {
   margin: 0;
-  font-family: 'Avenir Next', 'Gill Sans', 'Trebuchet MS', sans-serif;
+  font-family: 'Avenir Next', 'Segoe UI', sans-serif;
   color: var(--fk-ink);
-  background: var(--fk-cream);
+  background: var(--fk-sand);
+}
+
+button,
+input {
+  font: inherit;
 }

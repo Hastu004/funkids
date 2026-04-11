@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -14,9 +15,35 @@ describe('AppController', () => {
     appController = app.get<AppController>(AppController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+  it('returns landing data', () => {
+    const landing = appController.getLandingData();
+    expect(landing.brand).toBe('FunKids');
+    expect(landing.paymentMethods).toHaveLength(2);
+  });
+
+  it('creates a purchase with a valid email', () => {
+    const result = appController.createPurchase({
+      fullName: 'Cliente Demo',
+      email: 'cliente@correo.cl',
+      ticketCount: 2,
+      acceptedTerms: true,
+      wantsAccount: false,
+      paymentMethod: 'khipu',
     });
+
+    expect(result.status).toBe('pending_payment');
+    expect(result.order.amount).toBe(7000);
+  });
+
+  it('rejects invalid email payloads', () => {
+    expect(() =>
+      appController.createPurchase({
+        fullName: 'Cliente Demo',
+        email: 'correo-invalido',
+        ticketCount: 1,
+        acceptedTerms: true,
+        paymentMethod: 'khipu',
+      }),
+    ).toThrow(BadRequestException);
   });
 });
