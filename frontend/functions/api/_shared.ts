@@ -36,6 +36,26 @@ export function getLandingData() {
       legalDisclaimer:
         'La participacion implica aceptacion total de las bases y no aplica derecho a retracto por tratarse de un producto digital.',
     },
+    prizes: [
+      {
+        title: 'Cumpleanos Fun Kids Puertas Abiertas - Full',
+        items: ['Hasta 25 ninos', '3 horas de duracion', 'Juegos y espacio exclusivo', 'Caja sorpresa + pase estrella'],
+      },
+      {
+        title: 'Feria Fun Kids',
+        items: [
+          'Para 25 ninos',
+          'Maquina de palomitas',
+          'Maquina de burbujas',
+          'Algodon de azucar',
+          'Aguas saborizadas',
+          'Carro de snacks',
+          'Stand tipo feria',
+          'Juegos recreativos',
+          'Valido solo dentro de la comuna de Calama',
+        ],
+      },
+    ],
     highlights: [
       {
         title: 'Tickets del sorteo',
@@ -68,6 +88,110 @@ export function getLandingData() {
       email: 'sorteo@funkids.cl',
       schedule: 'Atencion digital de lunes a domingo, 09:00 a 20:00.',
     },
+    legalSections: [
+      {
+        title: 'I. Identificacion del organizador',
+        paragraphs: [
+          'El presente sorteo es organizado por Fun Kids Diversiones SpA, RUT 76.844.333-5, con domicilio en Avenida Balmaceda 2902, local 1010, comuna de Calama.',
+        ],
+      },
+      {
+        title: 'II. Naturaleza del sorteo',
+        paragraphs: [
+          'El presente sorteo tiene caracter promocional y no constituye un juego de azar en los terminos de la legislacion chilena vigente.',
+          'La participacion se obtiene mediante la adquisicion de un producto digital denominado "Participacion Digital Fun Kids – Experiencias", el cual otorga acceso al sorteo.',
+          'El producto digital adquirido no corresponde a un boleto de apuesta, sino a un bien intangible promocional.',
+        ],
+      },
+      {
+        title: 'III. Vigencia',
+        paragraphs: [
+          'El sorteo se desarrollara entre el 16 de abril de 2026 y el 29 de junio de 2026.',
+          'El sorteo se realizara el dia 30 de junio de 2026 mediante transmision en vivo.',
+        ],
+      },
+      {
+        title: 'IV. Mecanica de participacion',
+        paragraphs: [
+          'La participacion se obtiene mediante la compra de participaciones digitales bajo las siguientes modalidades.',
+          '$2.000: 1 participacion. $5.000: 3 participaciones. $15.000: 10 participaciones. $30.000: 25 participaciones.',
+          'El maximo total sera de 1.000 participaciones.',
+          'Cada participacion sera registrada en una base de datos unica y numerada.',
+        ],
+      },
+      {
+        title: 'V. Premio',
+        paragraphs: ['El ganador podra elegir una de las siguientes opciones.'],
+        bullets: [
+          'Opcion 1: Cumpleanos Fun Kids Puertas abiertas - Full.',
+          'Hasta 25 ninos.',
+          '3 horas de duracion.',
+          'Juegos y espacio exclusivo.',
+          'Caja sorpresa + pase estrella.',
+          'Opcion 2: Feria Fun Kids.',
+          'Para 25 ninos.',
+          'Maquina de palomitas.',
+          'Maquina de burbujas.',
+          'Algodon de azucar.',
+          'Aguas saborizadas.',
+          'Carro de snacks.',
+          'Stand tipo feria.',
+          'Juegos recreativos.',
+          'Valido solo dentro de la comuna de Calama.',
+        ],
+      },
+      {
+        title: 'VI. Condiciones del premio',
+        bullets: [
+          'El premio debera ser utilizado dentro de un plazo maximo de 12 meses.',
+          'El uso del premio estara sujeto a disponibilidad del Organizador.',
+          'Podra ser transferido previa autorizacion.',
+          'En caso de feria, incluye traslado dentro de Calama.',
+          'Cualquier servicio adicional sera de cargo del ganador.',
+        ],
+      },
+      {
+        title: 'VII. Participantes',
+        bullets: [
+          'Podran participar personas mayores de 18 anos con residencia en Chile.',
+          'No podran participar trabajadores del Organizador.',
+        ],
+      },
+      {
+        title: 'VIII. Sorteo',
+        bullets: [
+          'El sorteo se realizara mediante seleccion aleatoria usando plataforma digital.',
+          'Se elegira un ganador y dos suplentes.',
+          'El proceso sera transmitido en vivo via Instagram.',
+        ],
+      },
+      {
+        title: 'IX. Responsabilidad',
+        bullets: [
+          'El Organizador garantiza la correcta ejecucion del sorteo.',
+          'No sera responsable por hechos de fuerza mayor.',
+          'El Organizador no sera responsable por fallas externas tecnologicas.',
+        ],
+      },
+      {
+        title: 'X. Proteccion de datos',
+        bullets: [
+          'Los datos seran utilizados exclusivamente para fines del sorteo.',
+          'El participante autoriza el uso de sus datos para comunicaciones futuras.',
+        ],
+      },
+      {
+        title: 'XI. Derecho a retracto',
+        bullets: [
+          'Al tratarse de un producto digital, no aplica derecho a retracto conforme a la legislacion vigente.',
+          'No se realizaran devoluciones una vez efectuada la compra.',
+        ],
+      },
+      {
+        title: 'XII. Aceptacion',
+        paragraphs: ['La participacion implica la aceptacion total de estas bases.'],
+      },
+    ],
     packages,
     paymentMethods: [
       {

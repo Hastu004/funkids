@@ -18,6 +18,10 @@ export interface LandingData {
     maxParticipations: number;
     legalDisclaimer: string;
   };
+  prizes: Array<{
+    title: string;
+    items: string[];
+  }>;
   highlights: Array<{
     title: string;
     description: string;
@@ -30,6 +34,11 @@ export interface LandingData {
     email: string;
     schedule: string;
   };
+  legalSections: Array<{
+    title: string;
+    paragraphs?: string[];
+    bullets?: string[];
+  }>;
   packages: Array<{
     id: PackageId;
     amount: number;

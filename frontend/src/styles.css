@@ -192,62 +192,6 @@ h3,
   padding: 2rem 0;
 }
 
-.hero-accent {
-  position: relative;
-  display: inline-block;
-  width: 7rem;
-  height: 4.6rem;
-  margin-bottom: 1rem;
-}
-
-.hero-accent-heart {
-  position: absolute;
-  inset: 0 auto auto 0;
-  width: 5rem;
-  height: 4.2rem;
-}
-
-.hero-accent-heart::before,
-.hero-accent-heart::after {
-  content: '';
-  position: absolute;
-  width: 2.5rem;
-  height: 3.35rem;
-  border: 0.35rem solid var(--fk-coral);
-  border-bottom: 0;
-  border-radius: 2.4rem 2.4rem 0 0;
-}
-
-.hero-accent-heart::before {
-  left: 0.25rem;
-  transform: rotate(-45deg);
-  transform-origin: bottom left;
-}
-
-.hero-accent-heart::after {
-  left: 1.85rem;
-  transform: rotate(45deg);
-  transform-origin: bottom right;
-}
-
-.hero-accent-dot {
-  position: absolute;
-  width: 0.95rem;
-  height: 0.95rem;
-  border-radius: 50%;
-  background: var(--fk-yellow);
-}
-
-.hero-accent-dot-top {
-  top: 0.15rem;
-  left: 5.2rem;
-}
-
-.hero-accent-dot-bottom {
-  top: 2.95rem;
-  left: 0.55rem;
-}
-
 .eyebrow {
   display: inline-flex;
   align-items: center;
@@ -386,6 +330,18 @@ p {
 
 .spotlight-list strong {
   color: var(--fk-plum);
+}
+
+.spotlight-list ul,
+.legal-card ul {
+  margin: 0.6rem 0 0;
+  padding-left: 1.1rem;
+  color: #6e7592;
+  line-height: 1.65;
+}
+
+.prize-list article {
+  background: linear-gradient(180deg, rgba(255, 250, 246, 0.9), rgba(253, 245, 250, 0.92));
 }
 
 .meta-card {
@@ -633,6 +589,34 @@ p {
   text-align: center;
 }
 
+.legal-page {
+  padding-bottom: 4rem;
+}
+
+.legal-sections {
+  display: grid;
+  gap: 1rem;
+}
+
+.legal-card {
+  padding: 1.35rem 1.5rem;
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 20px 55px rgba(49, 56, 75, 0.08);
+}
+
+.legal-card h2 {
+  margin-bottom: 0.8rem;
+  font-size: 1.5rem;
+  color: var(--fk-plum);
+}
+
+.legal-card p {
+  color: #6e7592;
+  line-height: 1.7;
+}
+
 @media (max-width: 1040px) {
   .hero-grid,
   .checkout-layout,
@@ -669,11 +653,6 @@ p {
 
   .lead {
     font-size: 1rem;
-  }
-
-  .hero-accent {
-    width: 5.5rem;
-    height: 3.8rem;
   }
 
   .hero-meta {

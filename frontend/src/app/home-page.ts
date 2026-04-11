@@ -13,17 +13,12 @@ import { LandingApi } from './landing-api';
         <div class="hero-grid">
           <div class="hero-copy">
             <p class="eyebrow">{{ landing.hero.badge }}</p>
-            <div class="hero-accent" aria-hidden="true">
-              <span class="hero-accent-heart"></span>
-              <span class="hero-accent-dot hero-accent-dot-top"></span>
-              <span class="hero-accent-dot hero-accent-dot-bottom"></span>
-            </div>
             <h1>{{ landing.hero.title }}</h1>
             <p class="lead">{{ landing.hero.description }}</p>
 
             <div class="hero-actions">
               <a class="button primary" routerLink="/comprar">Comprar ahora</a>
-              <a class="button secondary" routerLink="/preguntas">Como funciona</a>
+              <a class="button secondary" routerLink="/bases-legales">Bases legales</a>
             </div>
 
             <div class="hero-meta">
@@ -43,15 +38,14 @@ import { LandingApi } from './landing-api';
           </div>
 
           <aside class="spotlight-card">
-            <p class="eyebrow subtle">Resumen</p>
-            <h2>{{ landing.raffle.title }}</h2>
-            <p>
-              La compra de tickets se realiza en modalidades definidas y el sorteo se realiza por seleccion aleatoria.
-            </p>
-            <div class="spotlight-list">
-              <article *ngFor="let highlight of landing.highlights">
-                <strong>{{ highlight.title }}</strong>
-                <p>{{ highlight.description }}</p>
+            <p class="eyebrow subtle">Premio</p>
+            <h2>El ganador podra elegir una de estas opciones.</h2>
+            <div class="spotlight-list prize-list">
+              <article *ngFor="let prize of landing.prizes">
+                <strong>{{ prize.title }}</strong>
+                <ul>
+                  <li *ngFor="let item of prize.items">{{ item }}</li>
+                </ul>
               </article>
             </div>
             <a class="button primary" routerLink="/comprar">Ir al checkout</a>
@@ -60,10 +54,10 @@ import { LandingApi } from './landing-api';
       </section>
 
       <section class="benefits">
-        <article class="benefit" *ngFor="let highlight of landing.highlights">
-          <p class="eyebrow subtle">Checkout FunKids</p>
-          <h2>{{ highlight.title }}</h2>
-          <p>{{ highlight.description }}</p>
+        <article class="benefit" *ngFor="let prize of landing.prizes">
+          <p class="eyebrow subtle">Opcion de premio</p>
+          <h2>{{ prize.title }}</h2>
+          <p>{{ prize.items[0] }}</p>
         </article>
       </section>
 
