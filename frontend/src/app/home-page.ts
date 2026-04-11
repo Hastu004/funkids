@@ -12,23 +12,12 @@ import { LandingApi } from './landing-api';
       <section class="hero">
         <div class="hero-grid">
           <div class="hero-copy">
-            <div class="hero-logo" aria-label="FunKids Diversion y Sonrisas">
-              <span class="hero-heart" aria-hidden="true"></span>
-              <span class="hero-dot hero-dot-top" aria-hidden="true"></span>
-              <span class="hero-dot hero-dot-left" aria-hidden="true"></span>
-              <div class="hero-logo-words">
-                <strong class="hero-fun">Fun</strong>
-                <strong class="hero-kids">Kids</strong>
-              </div>
-              <p class="hero-logo-tagline">
-                <span>Diversion</span>
-                <span>&amp;</span>
-                <span>Sonrisas</span>
-              </p>
-              <span class="hero-smile" aria-hidden="true"></span>
-            </div>
-
             <p class="eyebrow">{{ landing.hero.badge }}</p>
+            <div class="hero-accent" aria-hidden="true">
+              <span class="hero-accent-heart"></span>
+              <span class="hero-accent-dot hero-accent-dot-top"></span>
+              <span class="hero-accent-dot hero-accent-dot-bottom"></span>
+            </div>
             <h1>{{ landing.hero.title }}</h1>
             <p class="lead">{{ landing.hero.description }}</p>
 

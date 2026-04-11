@@ -191,124 +191,60 @@ h3,
   padding: 2rem 0;
 }
 
-.hero-logo {
+.hero-accent {
   position: relative;
   display: inline-block;
-  margin-bottom: 1.2rem;
-  padding: 1rem 3.5rem 1.2rem 0;
+  width: 7rem;
+  height: 4.6rem;
+  margin-bottom: 1rem;
 }
 
-.hero-heart {
+.hero-accent-heart {
   position: absolute;
-  top: -0.4rem;
-  left: -0.2rem;
-  width: 6rem;
-  height: 5rem;
+  inset: 0 auto auto 0;
+  width: 5rem;
+  height: 4.2rem;
 }
 
-.hero-heart::before,
-.hero-heart::after {
+.hero-accent-heart::before,
+.hero-accent-heart::after {
   content: '';
   position: absolute;
-  width: 3.1rem;
-  height: 4.25rem;
-  border: 0.45rem solid var(--fk-coral);
+  width: 2.5rem;
+  height: 3.35rem;
+  border: 0.35rem solid var(--fk-coral);
   border-bottom: 0;
-  border-radius: 3rem 3rem 0 0;
+  border-radius: 2.4rem 2.4rem 0 0;
 }
 
-.hero-heart::before {
-  left: 0.4rem;
+.hero-accent-heart::before {
+  left: 0.25rem;
   transform: rotate(-45deg);
   transform-origin: bottom left;
 }
 
-.hero-heart::after {
-  left: 2.3rem;
+.hero-accent-heart::after {
+  left: 1.85rem;
   transform: rotate(45deg);
   transform-origin: bottom right;
 }
 
-.hero-dot {
+.hero-accent-dot {
   position: absolute;
-  width: 1.1rem;
-  height: 1.1rem;
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 50%;
+  background: var(--fk-yellow);
 }
 
-.hero-dot-top {
-  top: 0.3rem;
-  left: 6.2rem;
+.hero-accent-dot-top {
+  top: 0.15rem;
+  left: 5.2rem;
 }
 
-.hero-dot-left {
-  top: 3.8rem;
-  left: 0.8rem;
-}
-
-.hero-logo-words {
-  align-items: flex-end;
-  gap: 2rem;
-  padding-left: 3.8rem;
-}
-
-.hero-fun,
-.hero-kids {
-  font-size: clamp(4.8rem, 12vw, 8.5rem);
-  letter-spacing: -0.07em;
-}
-
-.hero-fun {
-  color: var(--fk-sky);
-}
-
-.hero-kids {
-  color: var(--fk-pink);
-}
-
-.hero-logo-tagline {
-  gap: 0.55rem;
-  padding-left: 6.8rem;
-  margin: 0.5rem 0 0;
-  font-size: clamp(1.25rem, 3vw, 2.2rem);
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.hero-logo-tagline span:nth-child(1) {
-  color: var(--fk-pink);
-}
-
-.hero-logo-tagline span:nth-child(2) {
-  color: var(--fk-yellow);
-}
-
-.hero-logo-tagline span:nth-child(3) {
-  color: var(--fk-sky);
-}
-
-.hero-smile {
-  position: absolute;
-  right: 0;
-  bottom: -0.1rem;
-  width: 10rem;
-  height: 5rem;
-  border-right: 0.38rem solid var(--fk-plum);
-  border-bottom: 0.38rem solid var(--fk-plum);
-  border-radius: 0 0 5rem 0;
-}
-
-.hero-smile::before {
-  content: '';
-  position: absolute;
-  right: -0.15rem;
-  bottom: -1rem;
-  width: 5.7rem;
-  height: 3rem;
-  border-radius: 0 0 4rem 4rem;
-  background: var(--fk-coral);
-  opacity: 0.96;
-  transform: rotate(14deg);
+.hero-accent-dot-bottom {
+  top: 2.95rem;
+  left: 0.55rem;
 }
 
 .eyebrow {
@@ -703,32 +639,116 @@ p {
     flex-direction: column;
   }
 
+  .hero,
+  .page-section {
+    width: min(100%, calc(100% - 1rem));
+    padding: 1rem 0 2rem;
+  }
+
   .hero-copy,
   .page-intro {
     padding-top: 0;
   }
 
-  .brand {
-    align-items: flex-start;
+  h1 {
+    font-size: clamp(2.8rem, 12vw, 4rem);
+    line-height: 0.98;
   }
 
-  .hero-logo {
-    padding-right: 0;
+  .lead {
+    font-size: 1rem;
   }
 
-  .hero-logo-words,
-  .hero-logo-tagline {
-    gap: 0.8rem;
-    padding-left: 0.8rem;
-    align-items: flex-start;
+  .hero-accent {
+    width: 5.5rem;
+    height: 3.8rem;
   }
 
-  .hero-smile {
-    position: relative;
-    display: block;
-    margin-left: auto;
-    margin-top: 0.4rem;
-    width: 8rem;
-    height: 4rem;
+  .hero-meta {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .meta-card,
+  .purchase-card,
+  .spotlight-card,
+  .benefit,
+  .faq-item,
+  .contact-card {
+    border-radius: 1.5rem;
+  }
+
+  .meta-card {
+    min-width: 0;
+  }
+
+  .hero-actions .button,
+  .page-intro > .button {
+    width: 100%;
+  }
+
+  .purchase-card {
+    padding: 1.1rem;
+  }
+
+  .purchase-card__header h2,
+  .benefit h2,
+  .process-copy h2,
+  .faq-header h2,
+  .contact-card h2 {
+    font-size: clamp(1.9rem, 8vw, 2.4rem);
+  }
+
+  .check-line {
+    font-size: 0.95rem;
+  }
+
+  .checkout-summary {
+    gap: 0.75rem;
+  }
+
+  .process {
+    padding: 1.2rem;
+  }
+
+  .process-steps article {
+    grid-template-columns: 48px 1fr;
+    padding: 0.9rem;
+  }
+
+  .process-steps strong {
+    width: 3rem;
+    height: 3rem;
+    font-size: 1.2rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .hero,
+  .page-section {
+    width: min(100%, calc(100% - 0.75rem));
+  }
+
+  .eyebrow {
+    font-size: 0.82rem;
+    padding: 0.3rem 0.75rem;
+  }
+
+  .purchase-card,
+  .spotlight-card,
+  .process,
+  .benefit,
+  .faq-item,
+  .contact-card {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .purchase-form {
+    gap: 0.85rem;
+  }
+
+  .field input {
+    min-height: 3rem;
   }
 }
