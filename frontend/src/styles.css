@@ -1,3 +1,13 @@
+:root {
+  --fk-blue: #5fa8d9;
+  --fk-pink: #ea8cb1;
+  --fk-yellow: #f8c95f;
+  --fk-coral: #e45c6f;
+  --fk-plum: #8d5b92;
+  --fk-ink: #4f5876;
+  --fk-cream: #fffaf4;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -9,4 +19,6 @@ html {
 body {
   margin: 0;
   font-family: 'Avenir Next', 'Gill Sans', 'Trebuchet MS', sans-serif;
+  color: var(--fk-ink);
+  background: var(--fk-cream);
 }
