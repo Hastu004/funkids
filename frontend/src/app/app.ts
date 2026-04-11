@@ -5,7 +5,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { registerLocaleData } from '@angular/common';
 
-type PaymentMethodId = 'haulmer_transbank' | 'khipu';
+type PaymentMethodId = 'transbank' | 'khipu';
 
 interface LandingData {
   brand: string;
@@ -99,7 +99,7 @@ export class App {
     ticketCount: [1, [Validators.required, Validators.min(1), Validators.max(20)]],
     wantsAccount: [false],
     password: [''],
-    paymentMethod: ['haulmer_transbank' as PaymentMethodId, Validators.required],
+    paymentMethod: ['transbank' as PaymentMethodId, Validators.required],
     acceptedTerms: [false, Validators.requiredTrue],
   });
 

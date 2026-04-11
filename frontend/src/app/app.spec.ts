@@ -36,7 +36,7 @@ describe('App', () => {
       highlights: [],
       faqs: [],
       contact: { email: 'sorteo@funkids.cl', schedule: '09:00 a 20:00' },
-      paymentMethods: [{ id: 'khipu', name: 'Khipu', description: 'Pago online' }],
+      paymentMethods: [{ id: 'transbank', name: 'Transbank', description: 'Pago online' }],
     });
     fixture.detectChanges();
     expect(fixture.componentInstance).toBeTruthy();
@@ -59,7 +59,7 @@ describe('App', () => {
       highlights: [],
       faqs: [],
       contact: { email: 'sorteo@funkids.cl', schedule: '09:00 a 20:00' },
-      paymentMethods: [{ id: 'khipu', name: 'Khipu', description: 'Pago online' }],
+      paymentMethods: [{ id: 'transbank', name: 'Transbank', description: 'Pago online' }],
     });
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 
-type PaymentMethod = 'haulmer_transbank' | 'khipu';
+type PaymentMethod = 'transbank' | 'khipu';
 
 interface PurchasePayload {
   fullName?: string;
@@ -22,7 +22,7 @@ export class AppService {
         badge: 'Sorteo solidario y familiar',
         title: 'Compra tus tickets FunKids en minutos.',
         description:
-          'Tus clientes pueden participar del sorteo registrandose o comprando solo con su email. El flujo deja claro que el correo debe ser valido y permite pagar con Transbank by Haulmer o Khipu.',
+          'Tus clientes pueden participar del sorteo registrandose o comprando solo con su email. El flujo deja claro que el correo debe ser valido y permite pagar con Transbank o Khipu.',
       },
       raffle: {
         title: 'Gran sorteo FunKids',
@@ -47,7 +47,7 @@ export class AppService {
         {
           title: 'Dos medios de pago',
           description:
-            'Checkout preparado para Transbank by Haulmer y Khipu, mostrando el canal elegido antes de confirmar.',
+            'Checkout preparado para Transbank y Khipu, mostrando el canal elegido antes de confirmar.',
         },
       ],
       faqs: [
@@ -73,9 +73,9 @@ export class AppService {
       },
       paymentMethods: [
         {
-          id: 'haulmer_transbank',
-          name: 'Transbank by Haulmer',
-          description: 'Pago con tarjetas a traves de la integracion de Haulmer.',
+          id: 'transbank',
+          name: 'Transbank',
+          description: 'Pago con tarjetas en el checkout del sorteo.',
         },
         {
           id: 'khipu',
@@ -109,7 +109,7 @@ export class AppService {
       throw new BadRequestException('Debes aceptar las bases legales.');
     }
 
-    if (!payload.paymentMethod || !['haulmer_transbank', 'khipu'].includes(payload.paymentMethod)) {
+    if (!payload.paymentMethod || !['transbank', 'khipu'].includes(payload.paymentMethod)) {
       throw new BadRequestException('Selecciona un medio de pago disponible.');
     }
 
@@ -136,11 +136,11 @@ export class AppService {
         amount,
         paymentMethod: payload.paymentMethod,
         paymentLabel:
-          payload.paymentMethod === 'haulmer_transbank' ? 'Transbank by Haulmer' : 'Khipu',
+          payload.paymentMethod === 'transbank' ? 'Transbank' : 'Khipu',
       },
       nextStep:
-        payload.paymentMethod === 'haulmer_transbank'
-          ? 'Redirigir al checkout de Haulmer para completar el pago con Transbank.'
+        payload.paymentMethod === 'transbank'
+          ? 'Redirigir al checkout de Transbank para completar el pago.'
           : 'Redirigir a Khipu para completar la transferencia guiada.',
       message:
         'Solicitud recibida. En una integracion real, aqui se generaria la sesion de pago y se enviaria el comprobante al email del cliente.',

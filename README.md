@@ -97,7 +97,7 @@ npm run build:backend
 
 Para produccion real, falta conectar los endpoints `/api/purchase` a las APIs de:
 
-- `Transbank by Haulmer`
+- `Transbank`
 - `Khipu`
 
 Hoy el flujo ya despliega completo en Cloudflare, pero el pago sigue en modo mock.
