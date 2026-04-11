@@ -1,9 +1,12 @@
 {
   "name": "funkids",
-  "version": "1.0.0",
   "private": true,
-  "description": "Landing page simple para FunKids con backend Node.",
+  "version": "1.0.0",
+  "description": "Landing page FunKids con Angular y Nest.",
   "scripts": {
-    "start": "node server.js"
+    "start:frontend": "NG_CLI_ANALYTICS=false npm --prefix frontend start",
+    "start:backend": "npm --prefix backend run start:dev",
+    "build:frontend": "NG_CLI_ANALYTICS=false npm --prefix frontend run build",
+    "build:backend": "npm --prefix backend run build"
   }
 }
