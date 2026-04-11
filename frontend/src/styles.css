@@ -1,10 +1,12 @@
 :root {
-  --fk-red: #e85b5b;
-  --fk-orange: #ff9b57;
-  --fk-blue: #3d8bfd;
-  --fk-indigo: #5567d8;
-  --fk-ink: #27324a;
-  --fk-sand: #fff6eb;
+  --fk-coral: #e85f6b;
+  --fk-pink: #ea93b8;
+  --fk-yellow: #f8c85f;
+  --fk-sky: #5ba6d8;
+  --fk-plum: #97649a;
+  --fk-ink: #5d6480;
+  --fk-sand: #fff9f3;
+  --fk-cloud: #fffdfb;
 }
 
 * {

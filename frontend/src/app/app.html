@@ -2,8 +2,16 @@
   <section class="hero">
     <nav class="nav">
       <div class="brand" aria-label="FunKids">
-        <span class="brand-mark">FK</span>
-        <span>{{ data.brand }}</span>
+        <span class="brand-heart" aria-hidden="true"></span>
+        <span class="brand-dots" aria-hidden="true">
+          <i></i>
+          <i></i>
+        </span>
+        <span class="brand-wordmark">
+          <strong class="fun-word">Fun</strong>
+          <strong class="kids-word">Kids</strong>
+          <small>Diversion &amp; Sonrisas</small>
+        </span>
       </div>
 
       <div class="nav-links">
@@ -14,6 +22,22 @@
 
     <div class="hero-grid">
       <div class="hero-copy">
+        <div class="hero-logo" aria-label="FunKids Diversion y Sonrisas">
+          <span class="hero-heart" aria-hidden="true"></span>
+          <span class="hero-dot hero-dot-top" aria-hidden="true"></span>
+          <span class="hero-dot hero-dot-left" aria-hidden="true"></span>
+          <div class="hero-logo-words">
+            <strong class="hero-fun">Fun</strong>
+            <strong class="hero-kids">Kids</strong>
+          </div>
+          <p class="hero-logo-tagline">
+            <span>Diversion</span>
+            <span>&amp;</span>
+            <span>Sonrisas</span>
+          </p>
+          <span class="hero-smile" aria-hidden="true"></span>
+        </div>
+
         <p class="eyebrow">{{ data.hero.badge }}</p>
         <h1>{{ data.hero.title }}</h1>
         <p class="lead">{{ data.hero.description }}</p>
