@@ -2,6 +2,25 @@
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.7.
 
+## Cloudflare Pages
+
+This frontend is the part of the repository that should be deployed to Cloudflare Pages.
+
+Use these settings:
+
+```text
+Framework preset: Angular
+Build command: npm run build
+Build output directory: dist/frontend/browser
+Root directory: frontend
+```
+
+Important:
+
+- Do not deploy the repository root as a Pages build for the frontend.
+- Do not use the Worker flow for this Angular app as-is.
+- The Nest backend in `../backend` is not included in this Pages deployment.
+
 ## Development server
 
 To start a local development server, run:
