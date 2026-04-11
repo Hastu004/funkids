@@ -1,0 +1,221 @@
+import { CommonModule, CurrencyPipe } from '@angular/common';
+import localeEsCl from '@angular/common/locales/es-CL';
+import { Component, computed, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
+import { registerLocaleData } from '@angular/common';
+import { LandingApi, type PaymentMethodId, type PurchaseResponse } from './landing-api';
+
+registerLocaleData(localeEsCl);
+
+@Component({
+  selector: 'app-buy-page',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule, CurrencyPipe, RouterLink],
+  template: `
+    <main class="page-shell" *ngIf="data() as landing">
+      <section class="page-section checkout-layout">
+        <div class="page-intro">
+          <p class="eyebrow">Compra de tickets</p>
+          <h1>Completa tu compra en una pagina dedicada.</h1>
+          <p class="lead">
+            Este flujo permite compra express o registro opcional. El email es obligatorio y se valida antes de iniciar
+            el pago.
+          </p>
+
+          <div class="hero-meta">
+            <article class="meta-card">
+              <span>Sorteo</span>
+              <strong>{{ landing.raffle.title }}</strong>
+            </article>
+            <article class="meta-card">
+              <span>Valor ticket</span>
+              <strong>{{ landing.raffle.ticketPrice | currency: 'CLP' : 'symbol-narrow' : '1.0-0' : 'es-CL' }}</strong>
+            </article>
+          </div>
+
+          <a class="button secondary" routerLink="/preguntas">Ver preguntas frecuentes</a>
+        </div>
+
+        <aside class="purchase-card">
+          <div class="purchase-card__header">
+            <p class="eyebrow subtle">Compra express o con cuenta</p>
+            <h2>{{ landing.raffle.title }}</h2>
+            <p>Completa tus datos, elige cuántos tickets quieres y define cómo prefieres pagar.</p>
+          </div>
+
+          <form [formGroup]="purchaseForm" (ngSubmit)="submitPurchase()" class="purchase-form">
+            <label class="field">
+              <span>Nombre completo</span>
+              <input type="text" formControlName="fullName" placeholder="Ej: Jane Doe" />
+              <small class="error" *ngIf="hasError('fullName', 'required') || hasError('fullName', 'minlength')">
+                Ingresa un nombre valido.
+              </small>
+            </label>
+
+            <label class="field">
+              <span>Email valido</span>
+              <input type="email" formControlName="email" placeholder="nombre@correo.cl" />
+              <small class="error" *ngIf="hasError('email', 'required') || hasError('email', 'email')">
+                Usa un email valido para confirmar tu compra.
+              </small>
+            </label>
+
+            <div class="field-grid">
+              <label class="field">
+                <span>Telefono</span>
+                <input type="tel" formControlName="phone" placeholder="+56 9 1234 5678" />
+              </label>
+
+              <label class="field">
+                <span>Tickets</span>
+                <input type="number" min="1" max="20" formControlName="ticketCount" />
+                <small class="error" *ngIf="hasError('ticketCount', 'min') || hasError('ticketCount', 'max')">
+                  Puedes comprar entre 1 y 20 tickets.
+                </small>
+              </label>
+            </div>
+
+            <div class="toggle-row">
+              <label class="check-line">
+                <input type="checkbox" formControlName="wantsAccount" />
+                <span>Quiero registrarme para futuras compras</span>
+              </label>
+              <p>Si no marcas esta opcion, la compra se hace solo con tu email.</p>
+            </div>
+
+            <label class="field" *ngIf="purchaseForm.controls.wantsAccount.value">
+              <span>Contrasena</span>
+              <input type="password" formControlName="password" placeholder="Minimo 6 caracteres" />
+              <small class="error" *ngIf="hasError('password', 'required') || hasError('password', 'minlength')">
+                La contrasena debe tener al menos 6 caracteres.
+              </small>
+            </label>
+
+            <div class="payment-methods">
+              <p class="section-label">Medio de pago</p>
+              <label
+                class="payment-option"
+                *ngFor="let method of landing.paymentMethods"
+                [class.is-selected]="purchaseForm.controls.paymentMethod.value === method.id"
+              >
+                <input type="radio" formControlName="paymentMethod" [value]="method.id" />
+                <span>
+                  <strong>{{ method.name }}</strong>
+                  <small>{{ method.description }}</small>
+                </span>
+              </label>
+            </div>
+
+            <label class="check-line legal">
+              <input type="checkbox" formControlName="acceptedTerms" />
+              <span>Acepto las bases legales y entiendo que la participacion queda activa al validar el pago.</span>
+            </label>
+            <small class="error" *ngIf="hasError('acceptedTerms', 'required')">
+              Debes aceptar las bases legales.
+            </small>
+
+            <div class="checkout-summary">
+              <div>
+                <span>Total</span>
+                <strong>{{ totalAmount() | currency: 'CLP' : 'symbol-narrow' : '1.0-0' : 'es-CL' }}</strong>
+              </div>
+              <div>
+                <span>Pago</span>
+                <strong>{{ selectedPaymentLabel() }}</strong>
+              </div>
+            </div>
+
+            <button class="button primary submit-button" type="submit" [disabled]="isSubmitting()">
+              {{ isSubmitting() ? 'Preparando pago...' : 'Continuar al pago' }}
+            </button>
+
+            <p class="helper-text">{{ landing.raffle.legalDisclaimer }}</p>
+            <p class="error server-error" *ngIf="submitError()">{{ submitError() }}</p>
+          </form>
+
+          <section class="result-card" *ngIf="purchaseResult() as result">
+            <p class="eyebrow subtle">Compra iniciada</p>
+            <h3>{{ result.order.paymentLabel }}</h3>
+            <p>{{ result.message }}</p>
+            <p><strong>{{ result.participant.email }}</strong> recibira la confirmacion de pago.</p>
+            <p>Tickets asignados: {{ result.order.ticketNumbers.join(', ') }}</p>
+            <p>{{ result.nextStep }}</p>
+          </section>
+        </aside>
+      </section>
+    </main>
+  `,
+})
+export class BuyPage {
+  private readonly api = inject(LandingApi);
+  private readonly formBuilder = inject(FormBuilder);
+
+  protected readonly data = computed(() => this.api.landing());
+  protected readonly isSubmitting = signal(false);
+  protected readonly submitError = signal('');
+  protected readonly purchaseResult = signal<PurchaseResponse | null>(null);
+  protected readonly selectedPaymentLabel = computed(() => {
+    const methodId = this.purchaseForm.controls.paymentMethod.value as PaymentMethodId;
+    return this.data()?.paymentMethods.find((method) => method.id === methodId)?.name ?? '';
+  });
+  protected readonly totalAmount = computed(() => {
+    const ticketPrice = this.data()?.raffle.ticketPrice ?? 0;
+    const ticketCount = Number(this.purchaseForm.controls.ticketCount.value) || 0;
+    return ticketPrice * ticketCount;
+  });
+
+  protected readonly purchaseForm = this.formBuilder.nonNullable.group({
+    fullName: ['', [Validators.required, Validators.minLength(3)]],
+    email: ['', [Validators.required, Validators.email]],
+    phone: [''],
+    ticketCount: [1, [Validators.required, Validators.min(1), Validators.max(20)]],
+    wantsAccount: [false],
+    password: [''],
+    paymentMethod: ['transbank' as PaymentMethodId, Validators.required],
+    acceptedTerms: [false, Validators.requiredTrue],
+  });
+
+  constructor() {
+    this.api.loadLanding();
+    this.purchaseForm.controls.wantsAccount.valueChanges.subscribe((wantsAccount) => {
+      const passwordControl = this.purchaseForm.controls.password;
+      if (wantsAccount) {
+        passwordControl.addValidators([Validators.required, Validators.minLength(6)]);
+      } else {
+        passwordControl.clearValidators();
+        passwordControl.setValue('');
+      }
+      passwordControl.updateValueAndValidity();
+    });
+  }
+
+  protected submitPurchase() {
+    if (this.purchaseForm.invalid) {
+      this.purchaseForm.markAllAsTouched();
+      this.submitError.set('Revisa el formulario antes de continuar.');
+      this.purchaseResult.set(null);
+      return;
+    }
+
+    this.isSubmitting.set(true);
+    this.submitError.set('');
+    this.purchaseResult.set(null);
+
+    this.api.purchase(this.purchaseForm.getRawValue()).subscribe({
+      next: (response) => {
+        this.purchaseResult.set(response);
+        this.isSubmitting.set(false);
+      },
+      error: (error) => {
+        this.submitError.set(error.error?.message ?? 'No fue posible iniciar la compra.');
+        this.isSubmitting.set(false);
+      },
+    });
+  }
+
+  protected hasError(controlName: keyof typeof this.purchaseForm.controls, errorName: string) {
+    const control = this.purchaseForm.controls[controlName];
+    return control.touched && control.hasError(errorName);
+  }
+}
