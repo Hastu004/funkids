@@ -25,9 +25,9 @@ Este backend no debe desplegarse en `Cloudflare Pages`.
 
 Tampoco debe asumirse que puede publicarse directamente en `Cloudflare Workers` sin adaptaciones. El proyecto actual usa Nest como backend Node tradicional.
 
-Si en el futuro se quiere alojar todo en Cloudflare, este backend deberia migrarse a:
+La version que hoy se despliega en Cloudflare vive en:
 
-- `Cloudflare Pages Functions`, o
-- `Cloudflare Worker`
+- `../frontend/functions/api/landing.ts`
+- `../frontend/functions/api/purchase.ts`
 
-Hasta que eso ocurra, tratar este directorio como un servicio separado del frontend desplegado en Pages.
+Este directorio queda como referencia local o base para una futura API Node separada.

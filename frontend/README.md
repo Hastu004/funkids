@@ -15,11 +15,22 @@ Build output directory: dist/frontend/browser
 Root directory: frontend
 ```
 
+This Pages project also includes backend endpoints through `Cloudflare Pages Functions` stored in:
+
+- `functions/api/landing.ts`
+- `functions/api/purchase.ts`
+
+When deployed, the app uses:
+
+- `/api/landing`
+- `/api/purchase`
+
 Important:
 
 - Do not deploy the repository root as a Pages build for the frontend.
 - Do not use the Worker flow for this Angular app as-is.
 - The Nest backend in `../backend` is not included in this Pages deployment.
+- The Pages Functions API is the backend used by the deployed frontend.
 
 ## Development server
 

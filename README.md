@@ -34,8 +34,8 @@ Servicios esperados:
 Estado actual de despliegue:
 
 - `frontend/` se despliega en `Cloudflare Pages`
-- `backend/` NO se despliega en Pages
-- `backend/` tampoco debe desplegarse como Worker tal como esta hoy
+- `frontend/functions/` publica la API en `Cloudflare Pages Functions`
+- `backend/` queda solo para desarrollo local o referencia mientras exista la version Nest
 
 ### Configuracion correcta en Cloudflare Pages
 
@@ -47,6 +47,24 @@ Al conectar el repo `Hastu004/funkids`, usar exactamente:
 - Build command: `npm run build`
 - Build output directory: `dist/frontend/browser`
 - Root directory: `frontend`
+
+### API publicada en Cloudflare
+
+Con esa configuracion, Cloudflare publica:
+
+- Frontend Angular desde `frontend/`
+- Endpoints serverless desde `frontend/functions/api/landing.ts`
+- Endpoints serverless desde `frontend/functions/api/purchase.ts`
+
+Rutas expuestas en produccion:
+
+- `/api/landing`
+- `/api/purchase`
+
+El frontend ya viene configurado para usar:
+
+- `http://localhost:3000/api` en desarrollo local
+- `/api` cuando esta desplegado en Cloudflare
 
 ### Advertencias importantes
 
@@ -60,6 +78,7 @@ Al conectar el repo `Hastu004/funkids`, usar exactamente:
 Se publica:
 
 - La landing Angular ubicada en `frontend/`
+- La API serverless en `frontend/functions/`
 
 No se publica:
 
@@ -76,12 +95,9 @@ npm run build:backend
 
 ## Siguiente paso recomendado
 
-Si queremos tener todo en Cloudflare sin mantener un backend Node aparte, conviene migrar la API simple de `backend/` a una de estas opciones:
+Para produccion real, falta conectar los endpoints `/api/purchase` a las APIs de:
 
-- `Cloudflare Pages Functions`
-- `Cloudflare Worker`
+- `Transbank by Haulmer`
+- `Khipu`
 
-Mientras eso no ocurra, asumir siempre:
-
-- `Pages` para Angular
-- otro hosting para Nest
+Hoy el flujo ya despliega completo en Cloudflare, pero el pago sigue en modo mock.

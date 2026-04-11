@@ -62,6 +62,11 @@ interface PurchaseResponse {
 
 registerLocaleData(localeEsCl);
 
+const apiBaseUrl =
+  typeof window !== 'undefined' && window.location.hostname === 'localhost'
+    ? 'http://localhost:3000/api'
+    : '/api';
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -110,7 +115,7 @@ export class App {
       passwordControl.updateValueAndValidity();
     });
 
-    this.http.get<LandingData>('http://localhost:3000/api/landing').subscribe({
+    this.http.get<LandingData>(`${apiBaseUrl}/landing`).subscribe({
       next: (landing) => this.landing.set(landing),
     });
   }
@@ -127,7 +132,7 @@ export class App {
     this.submitError.set('');
     this.purchaseResult.set(null);
 
-    this.http.post<PurchaseResponse>('http://localhost:3000/api/purchase', this.purchaseForm.getRawValue()).subscribe({
+    this.http.post<PurchaseResponse>(`${apiBaseUrl}/purchase`, this.purchaseForm.getRawValue()).subscribe({
       next: (response) => {
         this.purchaseResult.set(response);
         this.isSubmitting.set(false);
