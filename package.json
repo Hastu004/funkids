@@ -1,0 +1,9 @@
+{
+  "name": "funkids",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Landing page simple para FunKids con backend Node.",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
