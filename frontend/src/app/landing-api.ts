@@ -2,6 +2,7 @@ import { inject, Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
 export type PaymentMethodId = 'transbank' | 'khipu';
+export type PackageId = 'pkg_2000' | 'pkg_5000' | 'pkg_15000' | 'pkg_30000';
 
 export interface LandingData {
   brand: string;
@@ -13,9 +14,8 @@ export interface LandingData {
   raffle: {
     title: string;
     drawDate: string;
-    ticketPrice: number;
-    totalTickets: number;
-    remainingTickets: number;
+    salePeriod: string;
+    maxParticipations: number;
     legalDisclaimer: string;
   };
   highlights: Array<{
@@ -30,6 +30,12 @@ export interface LandingData {
     email: string;
     schedule: string;
   };
+  packages: Array<{
+    id: PackageId;
+    amount: number;
+    participations: number;
+    label: string;
+  }>;
   paymentMethods: Array<{
     id: PaymentMethodId;
     name: string;
@@ -46,7 +52,9 @@ export interface PurchaseResponse {
     wantsAccount: boolean;
   };
   order: {
-    ticketCount: number;
+    packageId: PackageId;
+    packageLabel: string;
+    participations: number;
     ticketNumbers: string[];
     amount: number;
     paymentMethod: PaymentMethodId;

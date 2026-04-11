@@ -25,7 +25,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -456,7 +457,18 @@ p {
   background: rgba(255, 255, 255, 0.96);
 }
 
-.field input:focus {
+.field select {
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid rgba(151, 100, 154, 0.14);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--fk-ink);
+}
+
+.field input:focus,
+.field select:focus {
   outline: 2px solid rgba(91, 166, 216, 0.2);
   border-color: rgba(91, 166, 216, 0.45);
 }

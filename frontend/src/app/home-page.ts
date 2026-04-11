@@ -1,4 +1,4 @@
-import { CommonModule, CurrencyPipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LandingApi } from './landing-api';
@@ -6,7 +6,7 @@ import { LandingApi } from './landing-api';
 @Component({
   selector: 'app-home-page',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, RouterLink],
+  imports: [CommonModule, RouterLink],
   template: `
     <main class="page-shell" *ngIf="data() as landing">
       <section class="hero">
@@ -32,22 +32,21 @@ import { LandingApi } from './landing-api';
                 <strong>{{ landing.raffle.drawDate }}</strong>
               </article>
               <article class="meta-card">
-                <span>Valor ticket</span>
-                <strong>{{ landing.raffle.ticketPrice | currency: 'CLP' : 'symbol-narrow' : '1.0-0' : 'es-CL' }}</strong>
+                <span>Vigencia</span>
+                <strong>{{ landing.raffle.salePeriod }}</strong>
               </article>
               <article class="meta-card">
-                <span>Tickets disponibles</span>
-                <strong>{{ landing.raffle.remainingTickets }} / {{ landing.raffle.totalTickets }}</strong>
+                <span>Maximo</span>
+                <strong>{{ landing.raffle.maxParticipations }} tickets</strong>
               </article>
             </div>
           </div>
 
           <aside class="spotlight-card">
-            <p class="eyebrow subtle">Sorteo activo</p>
+            <p class="eyebrow subtle">Resumen</p>
             <h2>{{ landing.raffle.title }}</h2>
             <p>
-              Compra tus numeros en una pagina dedicada, valida tu email y elige entre Transbank o Khipu sin salir del
-              sitio.
+              La compra de tickets se realiza en modalidades definidas y el sorteo se realiza por seleccion aleatoria.
             </p>
             <div class="spotlight-list">
               <article *ngFor="let highlight of landing.highlights">
@@ -71,24 +70,24 @@ import { LandingApi } from './landing-api';
       <section class="process">
         <div class="process-copy">
           <p class="eyebrow">Flujo pensado para convertir</p>
-          <h2>Ahora el sitio navega por secciones reales en vez de una sola pagina larga.</h2>
+          <h2>Informacion breve y basada en las bases legales.</h2>
           <p>
-            Inicio presenta el sorteo, Comprar concentra el checkout y Preguntas resuelve dudas antes del pago.
+            Inicio resume el sorteo, Comprar concentra la compra de tickets y Preguntas muestra solo lo esencial.
           </p>
         </div>
 
         <div class="process-steps">
           <article>
             <strong>1</strong>
-            <p>Descubres el sorteo y revisas el valor del ticket desde Inicio.</p>
+            <p>Revisas vigencia, fecha del sorteo y modalidades.</p>
           </article>
           <article>
             <strong>2</strong>
-            <p>En Comprar completas nombre, email valido y defines si quieres cuenta.</p>
+            <p>Completa nombre, email valido y modalidad de tickets.</p>
           </article>
           <article>
             <strong>3</strong>
-            <p>Pagas con Transbank o Khipu y recibes confirmacion al correo.</p>
+            <p>Pagas con Transbank o Khipu y se registra tu compra.</p>
           </article>
         </div>
       </section>

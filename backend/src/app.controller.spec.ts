@@ -25,14 +25,14 @@ describe('AppController', () => {
     const result = appController.createPurchase({
       fullName: 'Cliente Demo',
       email: 'cliente@correo.cl',
-      ticketCount: 2,
+      packageId: 'pkg_5000',
       acceptedTerms: true,
       wantsAccount: false,
       paymentMethod: 'khipu',
     });
 
     expect(result.status).toBe('pending_payment');
-    expect(result.order.amount).toBe(7000);
+    expect(result.order.amount).toBe(5000);
   });
 
   it('rejects invalid email payloads', () => {
@@ -40,7 +40,7 @@ describe('AppController', () => {
       appController.createPurchase({
         fullName: 'Cliente Demo',
         email: 'correo-invalido',
-        ticketCount: 1,
+        packageId: 'pkg_2000',
         acceptedTerms: true,
         paymentMethod: 'khipu',
       }),

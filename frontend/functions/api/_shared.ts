@@ -1,82 +1,82 @@
 export type PaymentMethod = 'transbank' | 'khipu';
+export type PackageId = 'pkg_2000' | 'pkg_5000' | 'pkg_15000' | 'pkg_30000';
 
 export interface PurchasePayload {
   fullName?: string;
   email?: string;
   phone?: string;
-  ticketCount?: number;
+  packageId?: PackageId;
   wantsAccount?: boolean;
   password?: string;
   paymentMethod?: PaymentMethod;
   acceptedTerms?: boolean;
 }
 
+const packages = [
+  { id: 'pkg_2000' as const, amount: 2000, participations: 1, label: '$2.000 · 1 ticket' },
+  { id: 'pkg_5000' as const, amount: 5000, participations: 3, label: '$5.000 · 3 tickets' },
+  { id: 'pkg_15000' as const, amount: 15000, participations: 10, label: '$15.000 · 10 tickets' },
+  { id: 'pkg_30000' as const, amount: 30000, participations: 25, label: '$30.000 · 25 tickets' },
+];
+
 export function getLandingData() {
   return {
     brand: 'FunKids',
     hero: {
-      badge: 'Sorteo solidario y familiar',
-      title: 'Compra tus tickets FunKids en minutos.',
+      badge: 'Bases legales del sorteo',
+      title: 'Compra tus tickets.',
       description:
-        'Tus clientes pueden participar del sorteo registrandose o comprando solo con su email. El flujo deja claro que el correo debe ser valido y permite pagar con Transbank o Khipu.',
+        'La compra requiere un correo valido y el pago puede realizarse con Transbank o Khipu.',
     },
     raffle: {
-      title: 'Gran sorteo FunKids',
-      drawDate: '31 de mayo de 2026',
-      ticketPrice: 3500,
-      totalTickets: 5000,
-      remainingTickets: 1874,
+      title: 'Cumpleanos Sonado Fun Kids',
+      drawDate: '30 de junio de 2026',
+      salePeriod: '16 de abril de 2026 al 29 de junio de 2026',
+      maxParticipations: 1000,
       legalDisclaimer:
-        'La participacion queda sujeta a validacion de pago, revision del email ingresado y aceptacion de las bases legales del sorteo.',
+        'La participacion implica aceptacion total de las bases y no aplica derecho a retracto por tratarse de un producto digital.',
     },
     highlights: [
       {
-        title: 'Registro opcional',
-        description:
-          'Cada cliente elige si quiere crear una cuenta o comprar rapido indicando solo sus datos esenciales.',
+        title: 'Tickets del sorteo',
+        description: 'La compra se realiza en modalidades definidas en las bases.',
       },
       {
-        title: 'Email validado',
-        description:
-          'El formulario exige un correo con formato valido para asegurar confirmaciones y envio de comprobantes.',
+        title: 'Sorteo en vivo',
+        description: 'El sorteo se realizara mediante transmision en vivo el 30 de junio de 2026.',
       },
       {
-        title: 'Dos medios de pago',
-        description:
-          'Checkout preparado para Transbank y Khipu, mostrando el canal elegido antes de confirmar.',
+        title: 'Mayor de 18 anos',
+        description: 'Pueden participar personas mayores de 18 anos con residencia en Chile.',
       },
     ],
     faqs: [
       {
-        question: 'Se puede comprar sin registrarse?',
-        answer:
-          'Si. El cliente puede completar una compra express usando su nombre, email valido y la cantidad de tickets.',
+        question: 'Como se participa?',
+        answer: 'La compra se realiza seleccionando una de las modalidades disponibles.',
       },
       {
-        question: 'Cuando se confirma la compra?',
-        answer:
-          'La compra se confirma una vez recibido el pago y enviado el comprobante al email del participante.',
+        question: 'Cuando se realiza el sorteo?',
+        answer: 'El sorteo se realiza el 30 de junio de 2026 mediante transmision en vivo via Instagram.',
       },
       {
-        question: 'Que pasa si el cliente quiere cuenta?',
-        answer:
-          'Puede activar la opcion de registro durante la compra y definir una contrasena para futuras compras.',
+        question: 'Quien puede participar?',
+        answer: 'Personas mayores de 18 anos con residencia en Chile. No pueden participar trabajadores del organizador.',
       },
     ],
     contact: {
       email: 'sorteo@funkids.cl',
       schedule: 'Atencion digital de lunes a domingo, 09:00 a 20:00.',
     },
+    packages,
     paymentMethods: [
       {
         id: 'transbank',
-        name: 'Transbank',
-        description: 'Pago con tarjetas en el checkout del sorteo.',
+        name: 'Transbank', description: 'Pago online.',
       },
       {
         id: 'khipu',
-        name: 'Khipu',
-        description: 'Transferencia guiada y confirmacion online de pago.',
+        name: 'Khipu', description: 'Pago online.',
       },
     ],
   };
@@ -87,7 +87,7 @@ export function createPurchase(payload: PurchasePayload) {
   const fullName = payload.fullName?.trim();
   const wantsAccount = Boolean(payload.wantsAccount);
   const acceptedTerms = Boolean(payload.acceptedTerms);
-  const ticketCount = Number(payload.ticketCount);
+  const selectedPackage = packages.find((item) => item.id === payload.packageId);
 
   if (!fullName) {
     return jsonError('El nombre es obligatorio.', 400);
@@ -97,8 +97,8 @@ export function createPurchase(payload: PurchasePayload) {
     return jsonError('Debes ingresar un email valido.', 400);
   }
 
-  if (!Number.isInteger(ticketCount) || ticketCount < 1 || ticketCount > 20) {
-    return jsonError('La cantidad de tickets debe ser entre 1 y 20.', 400);
+  if (!selectedPackage) {
+    return jsonError('Debes seleccionar una modalidad de tickets.', 400);
   }
 
   if (!acceptedTerms) {
@@ -113,8 +113,7 @@ export function createPurchase(payload: PurchasePayload) {
     return jsonError('Si deseas registrarte, la contrasena debe tener al menos 6 caracteres.', 400);
   }
 
-  const amount = ticketCount * 3500;
-  const ticketNumbers = Array.from({ length: ticketCount }, (_, index) => {
+  const ticketNumbers = Array.from({ length: selectedPackage.participations }, (_, index) => {
     return `FK-${String(1200 + index + Math.floor(Math.random() * 8000)).padStart(4, '0')}`;
   });
 
@@ -127,9 +126,11 @@ export function createPurchase(payload: PurchasePayload) {
       wantsAccount,
     },
     order: {
-      ticketCount,
+      packageId: selectedPackage.id,
+      packageLabel: selectedPackage.label,
+      participations: selectedPackage.participations,
       ticketNumbers,
-      amount,
+      amount: selectedPackage.amount,
       paymentMethod: payload.paymentMethod,
       paymentLabel:
         payload.paymentMethod === 'transbank' ? 'Transbank' : 'Khipu',

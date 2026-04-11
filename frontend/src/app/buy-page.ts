@@ -4,7 +4,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { registerLocaleData } from '@angular/common';
-import { LandingApi, type PaymentMethodId, type PurchaseResponse } from './landing-api';
+import { LandingApi, type PurchaseResponse } from './landing-api';
 
 registerLocaleData(localeEsCl);
 
@@ -17,10 +17,10 @@ registerLocaleData(localeEsCl);
       <section class="page-section checkout-layout">
         <div class="page-intro">
           <p class="eyebrow">Compra de tickets</p>
-          <h1>Completa tu compra en una pagina dedicada.</h1>
+          <h1>Selecciona una modalidad de tickets.</h1>
           <p class="lead">
-            Este flujo permite compra express o registro opcional. El email es obligatorio y se valida antes de iniciar
-            el pago.
+            El formulario solicita nombre, email valido y medio de pago. La compra se registra segun las bases del
+            sorteo.
           </p>
 
           <div class="hero-meta">
@@ -29,8 +29,8 @@ registerLocaleData(localeEsCl);
               <strong>{{ landing.raffle.title }}</strong>
             </article>
             <article class="meta-card">
-              <span>Valor ticket</span>
-              <strong>{{ landing.raffle.ticketPrice | currency: 'CLP' : 'symbol-narrow' : '1.0-0' : 'es-CL' }}</strong>
+              <span>Vigencia</span>
+              <strong>{{ landing.raffle.salePeriod }}</strong>
             </article>
           </div>
 
@@ -41,7 +41,7 @@ registerLocaleData(localeEsCl);
           <div class="purchase-card__header">
             <p class="eyebrow subtle">Compra express o con cuenta</p>
             <h2>{{ landing.raffle.title }}</h2>
-            <p>Completa tus datos, elige cuántos tickets quieres y define cómo prefieres pagar.</p>
+            <p>Completa tus datos, elige una opcion de tickets y define cómo prefieres pagar.</p>
           </div>
 
           <form [formGroup]="purchaseForm" (ngSubmit)="submitPurchase()" class="purchase-form">
@@ -69,9 +69,12 @@ registerLocaleData(localeEsCl);
 
               <label class="field">
                 <span>Tickets</span>
-                <input type="number" min="1" max="20" formControlName="ticketCount" />
-                <small class="error" *ngIf="hasError('ticketCount', 'min') || hasError('ticketCount', 'max')">
-                  Puedes comprar entre 1 y 20 tickets.
+                <select formControlName="packageId">
+                  <option value="">Selecciona una opcion</option>
+                  <option *ngFor="let option of landing.packages" [value]="option.id">{{ option.label }}</option>
+                </select>
+                <small class="error" *ngIf="hasError('packageId', 'required')">
+                  Debes seleccionar una opcion de tickets.
                 </small>
               </label>
             </div>
@@ -109,7 +112,7 @@ registerLocaleData(localeEsCl);
 
             <label class="check-line legal">
               <input type="checkbox" formControlName="acceptedTerms" />
-              <span>Acepto las bases legales y entiendo que la participacion queda activa al validar el pago.</span>
+              <span>Acepto las bases legales y entiendo que la compra queda sujeta a validacion de pago.</span>
             </label>
             <small class="error" *ngIf="hasError('acceptedTerms', 'required')">
               Debes aceptar las bases legales.
@@ -121,8 +124,8 @@ registerLocaleData(localeEsCl);
                 <strong>{{ totalAmount() | currency: 'CLP' : 'symbol-narrow' : '1.0-0' : 'es-CL' }}</strong>
               </div>
               <div>
-                <span>Pago</span>
-                <strong>{{ selectedPaymentLabel() }}</strong>
+                <span>Tickets</span>
+                <strong>{{ selectedParticipations() }}</strong>
               </div>
             </div>
 
@@ -139,7 +142,7 @@ registerLocaleData(localeEsCl);
             <h3>{{ result.order.paymentLabel }}</h3>
             <p>{{ result.message }}</p>
             <p><strong>{{ result.participant.email }}</strong> recibira la confirmacion de pago.</p>
-            <p>Tickets asignados: {{ result.order.ticketNumbers.join(', ') }}</p>
+            <p>Tickets asignados: {{ result.order.participations }}</p>
             <p>{{ result.nextStep }}</p>
           </section>
         </aside>
@@ -155,24 +158,23 @@ export class BuyPage {
   protected readonly isSubmitting = signal(false);
   protected readonly submitError = signal('');
   protected readonly purchaseResult = signal<PurchaseResponse | null>(null);
-  protected readonly selectedPaymentLabel = computed(() => {
-    const methodId = this.purchaseForm.controls.paymentMethod.value as PaymentMethodId;
-    return this.data()?.paymentMethods.find((method) => method.id === methodId)?.name ?? '';
-  });
   protected readonly totalAmount = computed(() => {
-    const ticketPrice = this.data()?.raffle.ticketPrice ?? 0;
-    const ticketCount = Number(this.purchaseForm.controls.ticketCount.value) || 0;
-    return ticketPrice * ticketCount;
+    const selectedPackage = this.data()?.packages.find((item) => item.id === this.purchaseForm.controls.packageId.value);
+    return selectedPackage?.amount ?? 0;
+  });
+  protected readonly selectedParticipations = computed(() => {
+    const selectedPackage = this.data()?.packages.find((item) => item.id === this.purchaseForm.controls.packageId.value);
+    return selectedPackage ? String(selectedPackage.participations) : '-';
   });
 
   protected readonly purchaseForm = this.formBuilder.nonNullable.group({
     fullName: ['', [Validators.required, Validators.minLength(3)]],
     email: ['', [Validators.required, Validators.email]],
     phone: [''],
-    ticketCount: [1, [Validators.required, Validators.min(1), Validators.max(20)]],
+    packageId: ['', Validators.required],
     wantsAccount: [false],
     password: [''],
-    paymentMethod: ['transbank' as PaymentMethodId, Validators.required],
+    paymentMethod: ['transbank', Validators.required],
     acceptedTerms: [false, Validators.requiredTrue],
   });
 

@@ -14,8 +14,7 @@ import { LandingApi } from './landing-api';
           <p class="eyebrow">Preguntas frecuentes</p>
           <h1>Resuelve dudas antes de comprar.</h1>
           <p class="lead">
-            Aqui reunimos las respuestas clave sobre compra express, registro opcional, validacion de email y medios de
-            pago.
+            Aqui reunimos respuestas breves basadas en las bases legales del sorteo.
           </p>
           <div class="hero-actions">
             <a class="button primary" routerLink="/comprar">Ir a comprar</a>
