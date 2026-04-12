@@ -47,6 +47,26 @@ CREATE TABLE IF NOT EXISTS webpay_transactions (
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS receipt_deliveries (
+  order_id TEXT PRIMARY KEY,
+  recipient_email TEXT,
+  sent_at TEXT,
+  last_error TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS internal_notification_deliveries (
+  order_id TEXT PRIMARY KEY,
+  recipients TEXT NOT NULL,
+  sent_at TEXT,
+  last_error TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_channel ON orders(channel);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
@@ -56,3 +76,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_order_tickets_ticket_number ON order_ticke
 CREATE INDEX IF NOT EXISTS idx_webpay_transactions_token ON webpay_transactions(token);
 CREATE INDEX IF NOT EXISTS idx_webpay_transactions_buy_order ON webpay_transactions(buy_order);
 CREATE INDEX IF NOT EXISTS idx_webpay_transactions_session_id ON webpay_transactions(session_id);
+CREATE INDEX IF NOT EXISTS idx_receipt_deliveries_sent_at ON receipt_deliveries(sent_at);
+CREATE INDEX IF NOT EXISTS idx_internal_notification_deliveries_sent_at ON internal_notification_deliveries(sent_at);

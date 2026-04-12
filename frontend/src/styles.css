@@ -917,6 +917,42 @@ p {
   padding-bottom: 4rem;
 }
 
+.toast-message {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 60;
+  width: min(360px, calc(100vw - 2rem));
+  padding: 0.95rem 1rem;
+  border-radius: 1.25rem;
+  background: rgba(44, 142, 93, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 24px 60px rgba(20, 54, 40, 0.18);
+  color: #fff;
+  backdrop-filter: blur(12px);
+}
+
+.toast-message strong,
+.toast-message p {
+  display: block;
+}
+
+.toast-message strong {
+  margin-bottom: 0.25rem;
+  font-size: 0.95rem;
+}
+
+.toast-message p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.toast-message--error {
+  background: rgba(180, 67, 109, 0.94);
+  box-shadow: 0 24px 60px rgba(95, 33, 55, 0.2);
+}
+
 .admin-layout,
 .admin-login {
   display: grid;

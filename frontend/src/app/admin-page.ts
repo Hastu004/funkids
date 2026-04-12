@@ -578,6 +578,25 @@ export class AdminPage implements OnDestroy {
     });
   }
 
+  protected resendEmail(order: AdminOrder) {
+    if (!order.participant.email || this.resendingEmailOrderId() === order.id) {
+      return;
+    }
+
+    this.resendingEmailOrderId.set(order.id);
+
+    this.adminApi.resendOrderEmail(order.id).subscribe({
+      next: (response) => {
+        this.resendingEmailOrderId.set(null);
+        this.showToast('success', response.message);
+      },
+      error: (error) => {
+        this.resendingEmailOrderId.set(null);
+        this.showToast('error', error.error?.message ?? 'No fue posible reenviar el correo.');
+      },
+    });
+  }
+
   protected setSearch(value: string) {
     this.searchTerm.set(value);
     this.currentPage.set(1);
@@ -624,6 +643,19 @@ export class AdminPage implements OnDestroy {
 
   protected closeCreateModal() {
     this.isCreateModalOpen.set(false);
+  }
+
+  private showToast(type: 'success' | 'error', message: string) {
+    this.toast.set({ type, message });
+
+    if (this.toastTimer) {
+      clearTimeout(this.toastTimer);
+    }
+
+    this.toastTimer = setTimeout(() => {
+      this.toast.set(null);
+      this.toastTimer = null;
+    }, 4200);
   }
 
   private refreshDashboard() {

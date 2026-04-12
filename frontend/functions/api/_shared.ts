@@ -154,6 +154,17 @@ interface ReceiptDeliveryRow {
   updated_at: string;
 }
 
+interface InternalNotificationDeliveryRow {
+  order_id: string;
+  recipients: string;
+  sent_at: string | null;
+  last_error: string | null;
+  attempts: number;
+  updated_at: string;
+}
+
+const internalNotificationRecipients = ['hernan.astudillo.r@gmail.com', 'jbrito@funkids.cl'] as const;
+
 interface WebpayTransactionRecord {
   orderId: string;
   buyOrder: string;
@@ -579,6 +590,7 @@ export async function createAdminCashSale(request: Request, payload: AdminCashSa
   }
 
   await ensureReceiptSchema(dbResult.db);
+  await ensureInternalNotificationSchema(dbResult.db);
 
   const fullName = payload.fullName?.trim();
   const phone = payload.phone?.trim();
@@ -613,7 +625,7 @@ export async function createAdminCashSale(request: Request, payload: AdminCashSa
   });
 
   await insertOrder(dbResult.db, record);
-  await attemptAutomaticReceiptEmail(dbResult.db, env, record.id);
+  await attemptAutomaticOrderEmails(dbResult.db, env, record.id);
   const orders = await fetchOrders(dbResult.db);
 
   return Response.json({
@@ -776,6 +788,7 @@ export async function handleWebpayReturn(request: Request, env: unknown) {
 
   await ensureWebpaySchema(dbResult.db);
   await ensureReceiptSchema(dbResult.db);
+  await ensureInternalNotificationSchema(dbResult.db);
 
   const webpayConfig = getTransbankConfig(env, request);
   if ('error' in webpayConfig) {
@@ -808,7 +821,9 @@ export async function handleWebpayReturn(request: Request, env: unknown) {
   if (tokenWs) {
     try {
       const result = await commitWebpayPayment(dbResult.db, webpayConfig, tokenWs);
-      await attemptAutomaticReceiptEmail(dbResult.db, env, result.orderId);
+      if (isApprovedWebpayTransaction(result.transaction)) {
+        await attemptAutomaticOrderEmails(dbResult.db, env, result.orderId);
+      }
       return redirectToWebpayResult(webpayConfig.appUrl, result.orderId);
     } catch (error) {
       const current = await findWebpayTransactionByToken(dbResult.db, tokenWs);
@@ -962,6 +977,25 @@ async function ensureReceiptSchema(db: D1Database) {
       )
     `),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_receipt_deliveries_sent_at ON receipt_deliveries(sent_at)'),
+  ]);
+}
+
+async function ensureInternalNotificationSchema(db: D1Database) {
+  await db.batch([
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS internal_notification_deliveries (
+        order_id TEXT PRIMARY KEY,
+        recipients TEXT NOT NULL,
+        sent_at TEXT,
+        last_error TEXT,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+      )
+    `),
+    db.prepare(
+      'CREATE INDEX IF NOT EXISTS idx_internal_notification_deliveries_sent_at ON internal_notification_deliveries(sent_at)',
+    ),
   ]);
 }
 
@@ -1290,6 +1324,19 @@ async function attemptAutomaticReceiptEmail(db: D1Database, env: unknown, orderI
   }
 }
 
+async function attemptAutomaticInternalNotification(db: D1Database, env: unknown, orderId: string) {
+  try {
+    await deliverInternalNotificationEmail(db, env, orderId, { force: false });
+  } catch {
+    // La notificacion interna no debe bloquear la compra ni el retorno de Webpay.
+  }
+}
+
+async function attemptAutomaticOrderEmails(db: D1Database, env: unknown, orderId: string) {
+  await attemptAutomaticReceiptEmail(db, env, orderId);
+  await attemptAutomaticInternalNotification(db, env, orderId);
+}
+
 async function deliverOrderReceipt(
   db: D1Database,
   env: unknown,
@@ -1323,7 +1370,7 @@ async function deliverOrderReceipt(
 
   try {
     await sendSmtpEmail(smtpConfig, {
-      to: recipient,
+      to: [recipient],
       subject: receipt.subject,
       text: receipt.text,
       html: receipt.html,
@@ -1347,6 +1394,99 @@ async function deliverOrderReceipt(
     await upsertReceiptDelivery(db, {
       orderId,
       recipientEmail: recipient,
+      sentAt: null,
+      lastError: message,
+    });
+    throw new Error(message);
+  }
+}
+
+async function getInternalNotificationDelivery(db: D1Database, orderId: string) {
+  const row = await db
+    .prepare('SELECT * FROM internal_notification_deliveries WHERE order_id = ? LIMIT 1')
+    .bind(orderId)
+    .first<InternalNotificationDeliveryRow>();
+
+  return row ?? null;
+}
+
+async function upsertInternalNotificationDelivery(
+  db: D1Database,
+  input: { orderId: string; recipients: string; sentAt: string | null; lastError: string | null },
+) {
+  const current = await getInternalNotificationDelivery(db, input.orderId);
+  const attempts = (current?.attempts ?? 0) + 1;
+  const updatedAt = new Date().toISOString();
+
+  await db
+    .prepare(
+      `
+        INSERT INTO internal_notification_deliveries (order_id, recipients, sent_at, last_error, attempts, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(order_id) DO UPDATE SET
+          recipients = excluded.recipients,
+          sent_at = excluded.sent_at,
+          last_error = excluded.last_error,
+          attempts = excluded.attempts,
+          updated_at = excluded.updated_at
+      `,
+    )
+    .bind(input.orderId, input.recipients, input.sentAt, input.lastError, attempts, updatedAt)
+    .run();
+}
+
+async function deliverInternalNotificationEmail(
+  db: D1Database,
+  env: unknown,
+  orderId: string,
+  input: { force: boolean },
+) {
+  await ensureInternalNotificationSchema(db);
+
+  const order = await findOrderById(db, orderId);
+  if (!order) {
+    throw new Error('No encontramos la compra indicada para notificar al equipo.');
+  }
+
+  const currentDelivery = await getInternalNotificationDelivery(db, orderId);
+  if (!input.force && currentDelivery?.sent_at) {
+    return {
+      recipients: internalNotificationRecipients.join(', '),
+      sentAt: currentDelivery.sent_at,
+      skipped: true,
+    };
+  }
+
+  const smtpConfig = getSmtpConfig(env);
+  const transaction = order.channel === 'webpay' ? await findWebpayTransactionByOrderId(db, orderId) : null;
+  const notification = buildInternalOrderNotificationEmail(order, transaction, smtpConfig);
+
+  try {
+    await sendSmtpEmail(smtpConfig, {
+      to: [...internalNotificationRecipients],
+      subject: notification.subject,
+      text: notification.text,
+      html: notification.html,
+    });
+
+    const sentAt = new Date().toISOString();
+    await upsertInternalNotificationDelivery(db, {
+      orderId,
+      recipients: internalNotificationRecipients.join(', '),
+      sentAt,
+      lastError: null,
+    });
+
+    return {
+      recipients: internalNotificationRecipients.join(', '),
+      sentAt,
+      skipped: false,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No fue posible enviar la notificacion interna.';
+    await upsertInternalNotificationDelivery(db, {
+      orderId,
+      recipients: internalNotificationRecipients.join(', '),
       sentAt: null,
       lastError: message,
     });
@@ -1774,10 +1914,80 @@ function buildOrderReceiptEmail(
   };
 }
 
+function buildInternalOrderNotificationEmail(
+  order: OrderRecord,
+  transaction: WebpayTransactionRecord | null,
+  smtpConfig: SmtpConfig,
+) {
+  const orderDate = formatReceiptDate(order.createdAt);
+  const total = formatCurrency(order.order.amount);
+  const subject = `Nueva compra FunKids - ${order.participant.fullName}`;
+  const ticketList = order.order.ticketNumbers.join(', ');
+  const contactEmail = order.participant.email ?? 'Sin email';
+  const phone = order.participant.phone ?? 'Sin telefono';
+  const paymentDetail =
+    order.channel === 'cash'
+      ? 'Venta en efectivo registrada por el administrador.'
+      : transaction?.authorizationCode
+        ? `Pago Webpay confirmado. Autorizacion: ${transaction.authorizationCode}`
+        : 'Pago Webpay confirmado.';
+
+  return {
+    subject,
+    text: [
+      'Se registro una nueva compra en FunKids.',
+      '',
+      `Cliente: ${order.participant.fullName}`,
+      `Email: ${contactEmail}`,
+      `Telefono: ${phone}`,
+      `Compra: ${order.id}`,
+      `Fecha: ${orderDate}`,
+      `Canal: ${order.sourceLabel}`,
+      `Estado: ${order.status === 'paid' ? 'Pagado' : 'Pendiente'}`,
+      `Modalidad: ${order.order.packageLabel}`,
+      `Participaciones: ${order.order.participations}`,
+      `Total: ${total}`,
+      `Tickets: ${ticketList}`,
+      `Detalle de pago: ${paymentDetail}`,
+      order.notes ? `Nota: ${order.notes}` : '',
+      '',
+      `Correo emitido por ${smtpConfig.fromEmail}.`,
+    ]
+      .filter(Boolean)
+      .join('\r\n'),
+    html: `
+      <div style="margin:0;padding:24px;background:#f4fbff;font-family:Arial,sans-serif;color:#465071">
+        <div style="max-width:700px;margin:0 auto;background:#ffffff;border-radius:24px;padding:32px;border:1px solid rgba(91,166,216,0.14);box-shadow:0 18px 48px rgba(49,56,75,0.08)">
+          <p style="margin:0 0 16px;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4b99d6">Alerta interna FunKids</p>
+          <h1 style="margin:0 0 12px;font-size:28px;line-height:1.05;color:#4b99d6">Nueva compra registrada</h1>
+          <p style="margin:0 0 24px;font-size:16px;line-height:1.6">Se registro una nueva compra para <strong>${escapeHtml(order.participant.fullName)}</strong>.</p>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:18px">
+            <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Compra</strong><br />${escapeHtml(order.id)}</div>
+            <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Fecha</strong><br />${escapeHtml(orderDate)}</div>
+            <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Total</strong><br />${escapeHtml(total)}</div>
+            <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Estado</strong><br />${escapeHtml(order.status === 'paid' ? 'Pagado' : 'Pendiente')}</div>
+          </div>
+          <div style="padding:18px;border-radius:20px;background:linear-gradient(180deg,rgba(233,248,255,0.75),rgba(255,248,252,0.92));margin-bottom:18px">
+            <p style="margin:0 0 10px;font-size:18px;font-weight:700;color:#4b99d6">${escapeHtml(order.order.packageLabel)}</p>
+            <p style="margin:0 0 8px">Participaciones: <strong>${order.order.participations}</strong></p>
+            <p style="margin:0">Tickets: <strong>${escapeHtml(ticketList)}</strong></p>
+          </div>
+          <div style="padding:18px;border-radius:20px;background:#f8fcff">
+            <p style="margin:0 0 8px"><strong>Email</strong>: ${escapeHtml(contactEmail)}</p>
+            <p style="margin:0 0 8px"><strong>Telefono</strong>: ${escapeHtml(phone)}</p>
+            <p style="margin:0 0 8px"><strong>Canal</strong>: ${escapeHtml(order.sourceLabel)}</p>
+            <p style="margin:0"><strong>Pago</strong>: ${escapeHtml(paymentDetail)}</p>
+          </div>
+        </div>
+      </div>
+    `,
+  };
+}
+
 async function sendSmtpEmail(
   config: SmtpConfig,
   input: {
-    to: string;
+    to: string[];
     subject: string;
     text: string;
     html: string;
@@ -1811,8 +2021,10 @@ async function sendSmtpEmail(
 
     await client.send(`MAIL FROM:<${config.fromEmail}>`);
     await client.expect(250, 'El servidor SMTP rechazo el remitente.');
-    await client.send(`RCPT TO:<${input.to}>`);
-    await client.expectAny([250, 251], 'El servidor SMTP rechazo el destinatario.');
+    for (const recipient of input.to) {
+      await client.send(`RCPT TO:<${recipient}>`);
+      await client.expectAny([250, 251], 'El servidor SMTP rechazo uno de los destinatarios.');
+    }
     await client.send('DATA');
     await client.expect(354, 'El servidor SMTP no acepto el contenido del mensaje.');
     await client.sendRaw(`${escapeSmtpData(buildMimeMessage(config, input))}\r\n.\r\n`);
@@ -1837,15 +2049,16 @@ async function sendSmtpEmail(
 
 function buildMimeMessage(
   config: SmtpConfig,
-  input: { to: string; subject: string; text: string; html: string },
+  input: { to: string[]; subject: string; text: string; html: string },
 ) {
   const boundary = `fk-${crypto.randomUUID()}`;
   const fromHeader = `${encodeMimeHeader(config.fromName)} <${config.fromEmail}>`;
   const messageIdDomain = config.fromEmail.split('@')[1] ?? 'funkids.cl';
+  const toHeader = input.to.map((recipient) => `<${recipient}>`).join(', ');
 
   return [
     `From: ${fromHeader}`,
-    `To: <${input.to}>`,
+    `To: ${toHeader}`,
     `Subject: ${encodeMimeHeader(input.subject)}`,
     `Date: ${new Date().toUTCString()}`,
     `Message-ID: <${crypto.randomUUID()}@${messageIdDomain}>`,
