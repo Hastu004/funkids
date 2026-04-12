@@ -43,7 +43,7 @@ import { LandingApi } from './landing-api';
             <div class="spotlight-list prize-list">
               <article *ngFor="let prize of landing.prizes">
                 <strong>{{ prize.title }}</strong>
-                <ul>
+                <ul class="prize-items">
                   <li *ngFor="let item of prize.items">{{ item }}</li>
                 </ul>
               </article>
@@ -51,14 +51,6 @@ import { LandingApi } from './landing-api';
             <a class="button primary" routerLink="/comprar">Ir al checkout</a>
           </aside>
         </div>
-      </section>
-
-      <section class="benefits">
-        <article class="benefit" *ngFor="let prize of landing.prizes">
-          <p class="eyebrow subtle">Opcion de premio</p>
-          <h2>{{ prize.title }}</h2>
-          <p>{{ prize.items[0] }}</p>
-        </article>
       </section>
 
       <section class="process">
