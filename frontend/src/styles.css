@@ -836,6 +836,11 @@ p {
   gap: 1.2rem;
 }
 
+.admin-layout.page-section,
+.admin-login.page-section {
+  width: min(1340px, calc(100% - 2rem));
+}
+
 .admin-header-card,
 .admin-card {
   background: rgba(255, 255, 255, 0.9);
@@ -873,7 +878,7 @@ p {
 
 .admin-grid {
   display: grid;
-  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
   gap: 1.2rem;
   align-items: start;
 }
@@ -895,6 +900,7 @@ p {
 
 .admin-card--table {
   overflow: hidden;
+  min-height: 640px;
 }
 
 .admin-card--empty {
@@ -913,6 +919,10 @@ p {
   gap: 1rem;
 }
 
+.admin-button--create {
+  flex: 0 0 auto;
+}
+
 .admin-filters {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(180px, 220px) minmax(180px, 220px);
@@ -927,7 +937,7 @@ p {
 .admin-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 860px;
+  min-width: 980px;
 }
 
 .admin-table th,
@@ -1004,6 +1014,46 @@ p {
   color: #6e7592;
 }
 
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(93, 100, 128, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.admin-modal {
+  width: min(760px, 100%);
+  max-height: calc(100vh - 3rem);
+  overflow: auto;
+  padding: 1.4rem 1.5rem;
+  border-radius: 2rem;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 26px 80px rgba(49, 56, 75, 0.18);
+}
+
+.admin-modal__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.admin-modal__form {
+  gap: 1rem;
+}
+
+.admin-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
 @media (max-width: 1100px) {
   .checkout-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -1028,6 +1078,14 @@ p {
   }
 
   .admin-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-modal__header {
+    flex-direction: column;
+  }
+
+  .admin-modal__grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

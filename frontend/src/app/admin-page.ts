@@ -50,48 +50,6 @@ import { LandingApi } from './landing-api';
 
         <section class="admin-grid" *ngIf="dashboard() as dashboardData">
           <aside class="admin-stack">
-            <article class="admin-card">
-              <p class="eyebrow subtle">Crear</p>
-              <h2>Ingresar pago en efectivo</h2>
-              <p class="admin-copy">Registra ventas manuales para sumar tickets y participaciones al historial.</p>
-
-              <form [formGroup]="cashSaleForm" (ngSubmit)="submitCashSale()" class="purchase-form">
-                <label class="field">
-                  <span>Nombre completo</span>
-                  <input type="text" formControlName="fullName" placeholder="Ej: Jane Doe" />
-                </label>
-
-                <label class="field">
-                  <span>Telefono</span>
-                  <input type="tel" formControlName="phone" placeholder="+56 9 1234 5678" />
-                </label>
-
-                <label class="field">
-                  <span>Email opcional</span>
-                  <input type="email" formControlName="email" placeholder="cliente@correo.cl" />
-                </label>
-
-                <label class="field">
-                  <span>Modalidad de tickets</span>
-                  <select formControlName="packageId">
-                    <option value="">Selecciona una opcion</option>
-                    <option *ngFor="let option of landingData.packages" [value]="option.id">{{ option.label }}</option>
-                  </select>
-                </label>
-
-                <label class="field">
-                  <span>Nota interna</span>
-                  <input type="text" formControlName="notes" placeholder="Ej: Pago en caja principal" />
-                </label>
-
-                <button class="button primary submit-button" type="submit" [disabled]="isSavingCashSale()">
-                  {{ isSavingCashSale() ? 'Guardando...' : 'Guardar venta en efectivo' }}
-                </button>
-
-                <p class="error server-error" *ngIf="cashSaleMessage()">{{ cashSaleMessage() }}</p>
-              </form>
-            </article>
-
             <article class="admin-card" *ngIf="editingOrder(); else emptyEditor">
               <p class="eyebrow subtle">Editar</p>
               <h2>Actualizar registro</h2>
@@ -150,6 +108,9 @@ import { LandingApi } from './landing-api';
                 <p class="eyebrow subtle">Editar</p>
                 <h2>Selecciona un registro</h2>
                 <p class="admin-copy">Usa el boton editar en la tabla para actualizar un cliente existente.</p>
+                <button class="button primary" type="button" (click)="openCreateModal()">
+                  Crear venta en efectivo
+                </button>
               </article>
             </ng-template>
           </aside>
@@ -161,6 +122,10 @@ import { LandingApi } from './landing-api';
                 <h2>Historial del sorteo</h2>
                 <p class="admin-copy">Filtra por cliente, canal o estado y navega por paginas.</p>
               </div>
+
+              <button class="button primary admin-button admin-button--create" type="button" (click)="openCreateModal()">
+                Crear venta
+              </button>
             </div>
 
             <div class="admin-filters">
@@ -273,6 +238,63 @@ import { LandingApi } from './landing-api';
         </section>
       </section>
 
+      <div class="admin-modal-backdrop" *ngIf="isCreateModalOpen()" (click)="closeCreateModal()">
+        <article class="admin-modal" (click)="$event.stopPropagation()">
+          <div class="admin-modal__header">
+            <div>
+              <p class="eyebrow subtle">Crear</p>
+              <h2>Ingresar pago en efectivo</h2>
+              <p class="admin-copy">Registra ventas manuales para sumar tickets y participaciones al historial.</p>
+            </div>
+
+            <button class="button secondary admin-button" type="button" (click)="closeCreateModal()">
+              Cerrar
+            </button>
+          </div>
+
+          <form [formGroup]="cashSaleForm" (ngSubmit)="submitCashSale()" class="purchase-form admin-modal__form">
+            <div class="admin-modal__grid">
+              <label class="field">
+                <span>Nombre completo</span>
+                <input type="text" formControlName="fullName" placeholder="Ej: Jane Doe" />
+              </label>
+
+              <label class="field">
+                <span>Telefono</span>
+                <input type="tel" formControlName="phone" placeholder="+56 9 1234 5678" />
+              </label>
+
+              <label class="field">
+                <span>Email opcional</span>
+                <input type="email" formControlName="email" placeholder="cliente@correo.cl" />
+              </label>
+
+              <label class="field">
+                <span>Modalidad de tickets</span>
+                <select formControlName="packageId">
+                  <option value="">Selecciona una opcion</option>
+                  <option *ngFor="let option of landingData.packages" [value]="option.id">{{ option.label }}</option>
+                </select>
+              </label>
+            </div>
+
+            <label class="field">
+              <span>Nota interna</span>
+              <input type="text" formControlName="notes" placeholder="Ej: Pago en caja principal" />
+            </label>
+
+            <div class="admin-inline-actions">
+              <button class="button primary" type="submit" [disabled]="isSavingCashSale()">
+                {{ isSavingCashSale() ? 'Guardando...' : 'Guardar venta en efectivo' }}
+              </button>
+              <button class="button secondary" type="button" (click)="closeCreateModal()">Cancelar</button>
+            </div>
+
+            <p class="error server-error" *ngIf="cashSaleMessage()">{{ cashSaleMessage() }}</p>
+          </form>
+        </article>
+      </div>
+
       <ng-template #loginView>
         <section class="page-section admin-login">
           <article class="admin-card admin-card--login">
@@ -318,6 +340,7 @@ export class AdminPage {
   protected readonly statusFilter = signal<'all' | 'paid' | 'pending_payment'>('all');
   protected readonly currentPage = signal(1);
   protected readonly editingOrder = signal<AdminOrder | null>(null);
+  protected readonly isCreateModalOpen = signal(false);
   protected readonly isLoggingIn = signal(false);
   protected readonly isSavingCashSale = signal(false);
   protected readonly isUpdatingOrder = signal(false);
@@ -446,6 +469,7 @@ export class AdminPage {
           notes: '',
         });
         this.currentPage.set(1);
+        this.isCreateModalOpen.set(false);
         this.isSavingCashSale.set(false);
       },
       error: (error) => {
@@ -572,6 +596,15 @@ export class AdminPage {
 
   protected logout() {
     this.adminApi.logout();
+  }
+
+  protected openCreateModal() {
+    this.cashSaleMessage.set('');
+    this.isCreateModalOpen.set(true);
+  }
+
+  protected closeCreateModal() {
+    this.isCreateModalOpen.set(false);
   }
 
   private refreshDashboard() {
