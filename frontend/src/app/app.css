@@ -12,7 +12,7 @@
   z-index: 20;
   backdrop-filter: blur(18px);
   background: rgba(255, 253, 251, 0.82);
-  border-bottom: 1px solid rgba(151, 100, 154, 0.08);
+  border-bottom: 1px solid rgba(91, 166, 216, 0.12);
 }
 
 .site-header__inner {
@@ -37,7 +37,7 @@
 }
 
 .nav-link.is-active {
-  color: var(--fk-plum);
+  color: var(--fk-sky-deep);
 }
 
 @media (max-width: 720px) {
@@ -66,11 +66,11 @@
     padding: 0.75rem 0.8rem;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.76);
-    border: 1px solid rgba(151, 100, 154, 0.12);
+    border: 1px solid rgba(91, 166, 216, 0.16);
   }
 
   .nav-link.is-active {
-    background: rgba(234, 147, 184, 0.12);
+    background: rgba(91, 166, 216, 0.14);
   }
 
   .brand {

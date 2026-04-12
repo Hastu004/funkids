@@ -3,6 +3,8 @@
   --fk-pink: #ea93b8;
   --fk-yellow: #f8c85f;
   --fk-sky: #5ba6d8;
+  --fk-sky-deep: #3f95cc;
+  --fk-sky-soft: #e7f5ff;
   --fk-plum: #97649a;
   --fk-ink: #5d6480;
   --fk-sand: #fff9f3;
@@ -36,9 +38,9 @@ select {
   background:
     radial-gradient(circle at 12% 8%, rgba(248, 200, 95, 0.3), transparent 13%),
     radial-gradient(circle at 7% 30%, rgba(248, 200, 95, 0.24), transparent 10%),
-    radial-gradient(circle at 84% 16%, rgba(234, 147, 184, 0.18), transparent 18%),
-    radial-gradient(circle at 70% 80%, rgba(91, 166, 216, 0.14), transparent 20%),
-    linear-gradient(180deg, #fffdfa 0%, #fff7f7 46%, #f9fcff 100%);
+    radial-gradient(circle at 84% 16%, rgba(91, 166, 216, 0.18), transparent 18%),
+    radial-gradient(circle at 70% 80%, rgba(91, 166, 216, 0.16), transparent 20%),
+    linear-gradient(180deg, #fffdfa 0%, #f5fbff 46%, #eef8ff 100%);
 }
 
 .hero,
@@ -146,7 +148,7 @@ h3,
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--fk-plum);
+  color: var(--fk-sky-deep);
 }
 
 .fun-word,
@@ -200,7 +202,7 @@ h3,
   padding: 0.35rem 0.9rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.84);
-  color: var(--fk-plum);
+  color: var(--fk-sky-deep);
   font-size: 0.9rem;
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -208,8 +210,8 @@ h3,
 }
 
 .eyebrow.subtle {
-  background: rgba(232, 95, 107, 0.08);
-  color: var(--fk-coral);
+  background: rgba(91, 166, 216, 0.12);
+  color: var(--fk-sky-deep);
   box-shadow: none;
 }
 
@@ -218,7 +220,7 @@ h1 {
   font-size: clamp(3.4rem, 8vw, 6.2rem);
   line-height: 0.95;
   letter-spacing: -0.06em;
-  color: var(--fk-plum);
+  color: var(--fk-sky-deep);
 }
 
 h2,
@@ -281,15 +283,15 @@ p {
 }
 
 .primary {
-  background: linear-gradient(135deg, var(--fk-coral), var(--fk-pink));
+  background: linear-gradient(135deg, var(--fk-sky), var(--fk-sky-deep));
   color: #fff;
-  box-shadow: 0 18px 30px rgba(232, 95, 107, 0.24);
+  box-shadow: 0 18px 30px rgba(91, 166, 216, 0.28);
 }
 
 .secondary {
   background: rgba(255, 255, 255, 0.86);
-  color: var(--fk-plum);
-  border: 1px solid rgba(151, 100, 154, 0.14);
+  color: var(--fk-sky-deep);
+  border: 1px solid rgba(91, 166, 216, 0.18);
 }
 
 .hero-meta {
@@ -325,11 +327,11 @@ p {
 .spotlight-list article {
   padding: 0.9rem 1rem;
   border-radius: 1.2rem;
-  background: rgba(234, 147, 184, 0.08);
+  background: rgba(91, 166, 216, 0.08);
 }
 
 .spotlight-list strong {
-  color: var(--fk-plum);
+  color: var(--fk-sky-deep);
 }
 
 .spotlight-list ul,
@@ -361,7 +363,7 @@ p {
 
 .meta-card strong {
   font-size: 1.1rem;
-  color: var(--fk-plum);
+  color: var(--fk-sky-deep);
 }
 
 .purchase-card {
@@ -377,7 +379,7 @@ p {
   margin-bottom: 0.7rem;
   font-size: clamp(2rem, 4vw, 3rem);
   line-height: 0.98;
-  color: var(--fk-plum);
+  color: var(--fk-sky-deep);
 }
 
 .purchase-form {
@@ -440,7 +442,7 @@ p {
 .toggle-row,
 .check-line.legal {
   padding: 0.95rem 1rem;
-  background: rgba(234, 147, 184, 0.1);
+  background: rgba(91, 166, 216, 0.1);
 }
 
 .check-line {
@@ -490,7 +492,7 @@ p {
 .payment-option strong,
 .checkout-summary strong,
 .faq-item h3 {
-  color: var(--fk-plum);
+  color: var(--fk-sky-deep);
 }
 
 .checkout-summary {
@@ -498,7 +500,7 @@ p {
   gap: 1rem;
   padding: 1rem 1.1rem;
   border-radius: 1.2rem;
-  background: linear-gradient(135deg, rgba(255, 243, 205, 0.92), rgba(242, 247, 255, 0.92));
+  background: linear-gradient(135deg, rgba(233, 248, 255, 0.96), rgba(248, 252, 255, 0.92));
 }
 
 .submit-button {
@@ -563,7 +565,7 @@ p {
   border-radius: 1rem;
   font-size: 1.5rem;
   color: #fff;
-  background: linear-gradient(135deg, var(--fk-sky), var(--fk-plum));
+  background: linear-gradient(135deg, var(--fk-sky), var(--fk-sky-deep));
 }
 
 .faq-header {
@@ -609,7 +611,7 @@ p {
 .legal-card h2 {
   margin-bottom: 0.8rem;
   font-size: 1.5rem;
-  color: var(--fk-plum);
+  color: var(--fk-sky-deep);
 }
 
 .legal-card p {
