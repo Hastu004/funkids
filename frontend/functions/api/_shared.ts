@@ -65,11 +65,23 @@ interface AdminConfig {
   sessionSecret: string;
 }
 
+interface TransbankConfig {
+  environment: 'integration' | 'production';
+  commerceCode: string;
+  apiKey: string;
+  apiBaseUrl: string;
+  appUrl: string;
+}
+
 interface PagesEnv {
   DB?: D1Database;
   ADMIN_EMAIL?: string;
   ADMIN_PASSWORD?: string;
   ADMIN_SESSION_SECRET?: string;
+  TRANSBANK_ENVIRONMENT?: string;
+  TRANSBANK_COMMERCE_CODE?: string;
+  TRANSBANK_API_KEY?: string;
+  PUBLIC_APP_URL?: string;
 }
 
 interface OrderRow {
@@ -89,6 +101,69 @@ interface OrderRow {
   amount: number;
   payment_method: PaymentMethod;
   payment_label: string;
+}
+
+interface WebpayTransactionRow {
+  order_id: string;
+  buy_order: string;
+  session_id: string;
+  token: string;
+  redirect_url: string;
+  environment: 'integration' | 'production';
+  status: string;
+  response_code: number | null;
+  authorization_code: string | null;
+  payment_type_code: string | null;
+  transaction_date: string | null;
+  accounting_date: string | null;
+  card_number: string | null;
+  vci: string | null;
+  last_error: string | null;
+  raw_response: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface WebpayTransactionRecord {
+  orderId: string;
+  buyOrder: string;
+  sessionId: string;
+  token: string;
+  redirectUrl: string;
+  environment: 'integration' | 'production';
+  status: string;
+  responseCode: number | null;
+  authorizationCode: string | null;
+  paymentTypeCode: string | null;
+  transactionDate: string | null;
+  accountingDate: string | null;
+  cardNumber: string | null;
+  vci: string | null;
+  lastError: string | null;
+  rawResponse: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface WebpayCreateTransactionResponse {
+  token: string;
+  url: string;
+}
+
+interface WebpayCommitResponse {
+  vci?: string | null;
+  amount: number;
+  status: string;
+  buy_order: string;
+  session_id: string;
+  card_detail?: {
+    card_number?: string | null;
+  } | null;
+  accounting_date?: string | null;
+  transaction_date?: string | null;
+  authorization_code?: string | null;
+  payment_type_code?: string | null;
+  response_code?: number | null;
 }
 
 const packages = [
@@ -281,10 +356,17 @@ export function getLandingData() {
   };
 }
 
-export async function createPurchase(payload: PurchasePayload, env: unknown) {
+export async function createPurchase(payload: PurchasePayload, env: unknown, request: Request) {
   const dbResult = getDb(env);
   if ('error' in dbResult) {
     return dbResult.error;
+  }
+
+  await ensureWebpaySchema(dbResult.db);
+
+  const webpayConfig = getTransbankConfig(env, request);
+  if ('error' in webpayConfig) {
+    return webpayConfig.error;
   }
 
   const email = payload.email?.trim().toLowerCase();
@@ -328,15 +410,71 @@ export async function createPurchase(payload: PurchasePayload, env: unknown) {
     notes: null,
   });
 
-  await insertOrder(dbResult.db, record);
+  const buyOrder = sanitizeBuyOrder(record.id);
+  const sessionId = buildSessionId(record.id);
+  const returnUrl = `${webpayConfig.appUrl}/api/webpay/return`;
+
+  let webpayTransaction: WebpayTransactionRecord;
+
+  try {
+    const createdTransaction = await createWebpayTransaction(webpayConfig, {
+      buyOrder,
+      sessionId,
+      amount: record.order.amount,
+      returnUrl,
+    });
+
+    const now = new Date().toISOString();
+    webpayTransaction = {
+      orderId: record.id,
+      buyOrder,
+      sessionId,
+      token: createdTransaction.token,
+      redirectUrl: createdTransaction.url,
+      environment: webpayConfig.environment,
+      status: 'CREATED',
+      responseCode: null,
+      authorizationCode: null,
+      paymentTypeCode: null,
+      transactionDate: null,
+      accountingDate: null,
+      cardNumber: null,
+      vci: null,
+      lastError: null,
+      rawResponse: JSON.stringify(createdTransaction),
+      createdAt: now,
+      updatedAt: now,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No fue posible iniciar el pago en Webpay.';
+    return jsonError(message, 502);
+  }
+
+  try {
+    await insertOrder(dbResult.db, record);
+    await insertWebpayTransaction(dbResult.db, webpayTransaction);
+  } catch (error) {
+    await dbResult.db.batch([
+      dbResult.db.prepare('DELETE FROM order_tickets WHERE order_id = ?').bind(record.id),
+      dbResult.db.prepare('DELETE FROM orders WHERE id = ?').bind(record.id),
+    ]);
+
+    const message = error instanceof Error ? error.message : 'No fue posible guardar la transaccion de Webpay.';
+    return jsonError(message, 500);
+  }
 
   return Response.json({
-    status: 'pending_payment',
+    status: 'redirect_required',
     participant: record.participant,
     order: record.order,
-    nextStep: 'Redirigir al checkout de Webpay para completar el pago.',
-    message:
-      'Solicitud recibida. En una integracion real, aqui se generaria la sesion de pago y se enviaria el comprobante al email del cliente.',
+    nextStep: 'Redirigiendo al checkout de Webpay para completar el pago.',
+    message: 'Tu compra fue preparada correctamente. Te redirigiremos a Webpay para completar el pago.',
+    webpay: {
+      token: webpayTransaction.token,
+      url: webpayTransaction.redirectUrl,
+      buyOrder: webpayTransaction.buyOrder,
+      sessionId: webpayTransaction.sessionId,
+    },
   });
 }
 
@@ -534,6 +672,8 @@ export async function deleteAdminOrder(request: Request, orderId: string, env: u
     return dbResult.error;
   }
 
+  await ensureWebpaySchema(dbResult.db);
+
   const config = getAdminConfig(env);
   if ('error' in config) {
     return config.error;
@@ -551,6 +691,7 @@ export async function deleteAdminOrder(request: Request, orderId: string, env: u
 
   await dbResult.db.batch([
     dbResult.db.prepare('DELETE FROM order_tickets WHERE order_id = ?').bind(orderId),
+    dbResult.db.prepare('DELETE FROM webpay_transactions WHERE order_id = ?').bind(orderId),
     dbResult.db.prepare('DELETE FROM orders WHERE id = ?').bind(orderId),
   ]);
 
@@ -563,6 +704,117 @@ export async function deleteAdminOrder(request: Request, orderId: string, env: u
   });
 }
 
+export async function handleWebpayReturn(request: Request, env: unknown) {
+  const dbResult = getDb(env);
+  if ('error' in dbResult) {
+    return dbResult.error;
+  }
+
+  await ensureWebpaySchema(dbResult.db);
+
+  const webpayConfig = getTransbankConfig(env, request);
+  if ('error' in webpayConfig) {
+    return webpayConfig.error;
+  }
+
+  const params = await readIncomingParams(request);
+  const tokenWs = params.get('token_ws')?.trim();
+  const tbkToken = params.get('TBK_TOKEN')?.trim();
+  const buyOrder = params.get('TBK_ORDEN_COMPRA')?.trim() || params.get('buy_order')?.trim() || null;
+  const sessionId = params.get('TBK_ID_SESION')?.trim() || params.get('session_id')?.trim() || null;
+
+  if (tbkToken) {
+    try {
+      const result = await settleAbortedWebpayTransaction(dbResult.db, webpayConfig, tbkToken, buyOrder, sessionId);
+      return redirectToWebpayResult(webpayConfig.appUrl, result.orderId);
+    } catch (error) {
+      const orderId = buyOrder ?? (sessionId ? await findOrderIdBySessionId(dbResult.db, sessionId) : null);
+      if (orderId) {
+        await updateWebpayTransactionState(dbResult.db, orderId, {
+          status: 'ERROR',
+          lastError: error instanceof Error ? error.message : 'No fue posible consultar el estado de Webpay.',
+          rawResponse: JSON.stringify({ token: tbkToken, buyOrder, sessionId }),
+        });
+      }
+      return redirectToWebpayResult(webpayConfig.appUrl, orderId);
+    }
+  }
+
+  if (tokenWs) {
+    try {
+      const result = await commitWebpayPayment(dbResult.db, webpayConfig, tokenWs);
+      return redirectToWebpayResult(webpayConfig.appUrl, result.orderId);
+    } catch (error) {
+      const current = await findWebpayTransactionByToken(dbResult.db, tokenWs);
+      if (current?.orderId) {
+        await updateWebpayTransactionState(dbResult.db, current.orderId, {
+          status: 'ERROR',
+          lastError: error instanceof Error ? error.message : 'No fue posible confirmar el pago en Webpay.',
+          rawResponse: JSON.stringify({ token: tokenWs }),
+        });
+      }
+      return redirectToWebpayResult(webpayConfig.appUrl, current?.orderId ?? null);
+    }
+  }
+
+  const fallbackOrderId = buyOrder ?? (sessionId ? await findOrderIdBySessionId(dbResult.db, sessionId) : null);
+  if (fallbackOrderId) {
+    await updateWebpayTransactionState(dbResult.db, fallbackOrderId, {
+      status: 'TIMEOUT',
+      lastError: 'El pago no fue completado y la sesion expiro o fue cerrada por el usuario.',
+      rawResponse: JSON.stringify({
+        event: 'timeout_or_closed',
+        buyOrder,
+        sessionId,
+      }),
+    });
+  }
+
+  return redirectToWebpayResult(webpayConfig.appUrl, fallbackOrderId);
+}
+
+export async function getWebpayResult(orderId: string, env: unknown) {
+  const dbResult = getDb(env);
+  if ('error' in dbResult) {
+    return dbResult.error;
+  }
+
+  await ensureWebpaySchema(dbResult.db);
+
+  const order = await findOrderById(dbResult.db, orderId);
+  if (!order) {
+    return jsonError('No encontramos la compra solicitada.', 404);
+  }
+
+  const transaction = await findWebpayTransactionByOrderId(dbResult.db, orderId);
+  const paymentState = normalizeWebpayState(order, transaction);
+
+  return Response.json({
+    orderId: order.id,
+    status: paymentState.status,
+    title: paymentState.title,
+    message: paymentState.message,
+    participant: order.participant,
+    order: order.order,
+    payment: transaction
+      ? {
+          buyOrder: transaction.buyOrder,
+          sessionId: transaction.sessionId,
+          token: transaction.token,
+          status: transaction.status,
+          responseCode: transaction.responseCode,
+          authorizationCode: transaction.authorizationCode,
+          paymentTypeCode: transaction.paymentTypeCode,
+          cardNumber: transaction.cardNumber,
+          transactionDate: transaction.transactionDate,
+          accountingDate: transaction.accountingDate,
+          vci: transaction.vci,
+          lastError: transaction.lastError,
+        }
+      : null,
+  });
+}
+
 function getDb(env: unknown): { db: D1Database } | { error: Response } {
   const db = (env as PagesEnv | undefined)?.DB;
   if (!db) {
@@ -570,6 +822,64 @@ function getDb(env: unknown): { db: D1Database } | { error: Response } {
   }
 
   return { db };
+}
+
+function getTransbankConfig(env: unknown, request: Request): TransbankConfig | { error: Response } {
+  const source = (env ?? {}) as PagesEnv;
+  const environment = String(source.TRANSBANK_ENVIRONMENT ?? 'integration').trim().toLowerCase();
+  const commerceCode = String(source.TRANSBANK_COMMERCE_CODE ?? '').trim();
+  const apiKey = String(source.TRANSBANK_API_KEY ?? '').trim();
+  const requestOrigin = new URL(request.url).origin;
+  const appUrl = String(source.PUBLIC_APP_URL ?? requestOrigin).trim().replace(/\/$/, '');
+
+  if (environment !== 'integration' && environment !== 'production') {
+    return { error: jsonError('TRANSBANK_ENVIRONMENT debe ser "integration" o "production".', 500) };
+  }
+
+  if (!commerceCode || !apiKey) {
+    return {
+      error: jsonError('Faltan credenciales de Transbank en el servidor.', 500),
+    };
+  }
+
+  return {
+    environment,
+    commerceCode,
+    apiKey,
+    apiBaseUrl: environment === 'production' ? 'https://webpay3g.transbank.cl' : 'https://webpay3gint.transbank.cl',
+    appUrl,
+  };
+}
+
+async function ensureWebpaySchema(db: D1Database) {
+  await db.batch([
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS webpay_transactions (
+        order_id TEXT PRIMARY KEY,
+        buy_order TEXT NOT NULL UNIQUE,
+        session_id TEXT NOT NULL,
+        token TEXT NOT NULL UNIQUE,
+        redirect_url TEXT NOT NULL,
+        environment TEXT NOT NULL,
+        status TEXT NOT NULL,
+        response_code INTEGER,
+        authorization_code TEXT,
+        payment_type_code TEXT,
+        transaction_date TEXT,
+        accounting_date TEXT,
+        card_number TEXT,
+        vci TEXT,
+        last_error TEXT,
+        raw_response TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+      )
+    `),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_webpay_transactions_token ON webpay_transactions(token)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_webpay_transactions_buy_order ON webpay_transactions(buy_order)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_webpay_transactions_session_id ON webpay_transactions(session_id)'),
+  ]);
 }
 
 function getAdminConfig(env: unknown): AdminConfig | { error: Response } {
@@ -638,6 +948,125 @@ async function findOrderById(db: D1Database, orderId: string) {
     .all<{ ticket_number: string }>();
 
   return mapOrderRow(rowResult, (ticketResult.results ?? []).map((ticket) => ticket.ticket_number));
+}
+
+async function insertWebpayTransaction(db: D1Database, transaction: WebpayTransactionRecord) {
+  await db
+    .prepare(
+      `
+        INSERT INTO webpay_transactions (
+          order_id, buy_order, session_id, token, redirect_url, environment,
+          status, response_code, authorization_code, payment_type_code,
+          transaction_date, accounting_date, card_number, vci, last_error,
+          raw_response, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+    )
+    .bind(
+      transaction.orderId,
+      transaction.buyOrder,
+      transaction.sessionId,
+      transaction.token,
+      transaction.redirectUrl,
+      transaction.environment,
+      transaction.status,
+      transaction.responseCode,
+      transaction.authorizationCode,
+      transaction.paymentTypeCode,
+      transaction.transactionDate,
+      transaction.accountingDate,
+      transaction.cardNumber,
+      transaction.vci,
+      transaction.lastError,
+      transaction.rawResponse,
+      transaction.createdAt,
+      transaction.updatedAt,
+    )
+    .run();
+}
+
+async function findWebpayTransactionByOrderId(db: D1Database, orderId: string) {
+  const row = await db
+    .prepare('SELECT * FROM webpay_transactions WHERE order_id = ? LIMIT 1')
+    .bind(orderId)
+    .first<WebpayTransactionRow>();
+
+  return row ? mapWebpayTransactionRow(row) : null;
+}
+
+async function findWebpayTransactionByToken(db: D1Database, token: string) {
+  const row = await db
+    .prepare('SELECT * FROM webpay_transactions WHERE token = ? LIMIT 1')
+    .bind(token)
+    .first<WebpayTransactionRow>();
+
+  return row ? mapWebpayTransactionRow(row) : null;
+}
+
+async function findOrderIdBySessionId(db: D1Database, sessionId: string) {
+  const row = await db
+    .prepare('SELECT order_id FROM webpay_transactions WHERE session_id = ? LIMIT 1')
+    .bind(sessionId)
+    .first<{ order_id: string }>();
+
+  return row?.order_id ?? null;
+}
+
+async function updateOrderPaymentStatus(db: D1Database, orderId: string, status: 'paid' | 'pending_payment') {
+  await db.prepare('UPDATE orders SET status = ? WHERE id = ?').bind(status, orderId).run();
+}
+
+async function updateWebpayTransactionState(
+  db: D1Database,
+  orderId: string,
+  input: {
+    token?: string;
+    redirectUrl?: string;
+    status: string;
+    responseCode?: number | null;
+    authorizationCode?: string | null;
+    paymentTypeCode?: string | null;
+    transactionDate?: string | null;
+    accountingDate?: string | null;
+    cardNumber?: string | null;
+    vci?: string | null;
+    lastError?: string | null;
+    rawResponse?: string | null;
+  },
+) {
+  const current = await findWebpayTransactionByOrderId(db, orderId);
+  if (!current) {
+    return;
+  }
+
+  const updatedAt = new Date().toISOString();
+  await db
+    .prepare(
+      `
+        UPDATE webpay_transactions
+        SET token = ?, redirect_url = ?, status = ?, response_code = ?, authorization_code = ?,
+            payment_type_code = ?, transaction_date = ?, accounting_date = ?, card_number = ?,
+            vci = ?, last_error = ?, raw_response = ?, updated_at = ?
+        WHERE order_id = ?
+      `,
+    )
+    .bind(
+      input.token ?? current.token,
+      input.redirectUrl ?? current.redirectUrl,
+      input.status,
+      input.responseCode ?? null,
+      input.authorizationCode ?? null,
+      input.paymentTypeCode ?? null,
+      input.transactionDate ?? null,
+      input.accountingDate ?? null,
+      input.cardNumber ?? null,
+      input.vci ?? null,
+      input.lastError ?? null,
+      input.rawResponse ?? null,
+      updatedAt,
+      orderId,
+    )
+    .run();
 }
 
 async function insertOrder(db: D1Database, order: OrderRecord) {
@@ -792,6 +1221,263 @@ function mapOrderRow(row: OrderRow, ticketNumbers: string[]) {
       paymentLabel: row.payment_label,
     },
   } satisfies OrderRecord;
+}
+
+function mapWebpayTransactionRow(row: WebpayTransactionRow) {
+  return {
+    orderId: row.order_id,
+    buyOrder: row.buy_order,
+    sessionId: row.session_id,
+    token: row.token,
+    redirectUrl: row.redirect_url,
+    environment: row.environment,
+    status: row.status,
+    responseCode: row.response_code,
+    authorizationCode: row.authorization_code,
+    paymentTypeCode: row.payment_type_code,
+    transactionDate: row.transaction_date,
+    accountingDate: row.accounting_date,
+    cardNumber: row.card_number,
+    vci: row.vci,
+    lastError: row.last_error,
+    rawResponse: row.raw_response,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  } satisfies WebpayTransactionRecord;
+}
+
+async function createWebpayTransaction(
+  config: TransbankConfig,
+  input: { buyOrder: string; sessionId: string; amount: number; returnUrl: string },
+) {
+  return callTransbank<WebpayCreateTransactionResponse>(config, '/rswebpaytransaction/api/webpay/v1.2/transactions', {
+    method: 'POST',
+    body: {
+      buy_order: input.buyOrder,
+      session_id: input.sessionId,
+      amount: input.amount,
+      return_url: input.returnUrl,
+    },
+  });
+}
+
+async function commitWebpayTransaction(config: TransbankConfig, token: string) {
+  return callTransbank<WebpayCommitResponse>(config, `/rswebpaytransaction/api/webpay/v1.2/transactions/${token}`, {
+    method: 'PUT',
+  });
+}
+
+async function getWebpayTransactionStatus(config: TransbankConfig, token: string) {
+  return callTransbank<WebpayCommitResponse>(config, `/rswebpaytransaction/api/webpay/v1.2/transactions/${token}`, {
+    method: 'GET',
+  });
+}
+
+async function callTransbank<T>(
+  config: TransbankConfig,
+  path: string,
+  input: { method: 'GET' | 'POST' | 'PUT'; body?: Record<string, unknown> },
+) {
+  const response = await fetch(`${config.apiBaseUrl}${path}`, {
+    method: input.method,
+    headers: {
+      'Content-Type': 'application/json',
+      'Tbk-Api-Key-Id': config.commerceCode,
+      'Tbk-Api-Key-Secret': config.apiKey,
+    },
+    body: input.body ? JSON.stringify(input.body) : undefined,
+  });
+
+  const text = await response.text();
+  const data = text ? safeJsonParse(text) : null;
+
+  if (!response.ok) {
+    const message =
+      (typeof data === 'object' && data && 'error_message' in data && String(data.error_message)) ||
+      (typeof data === 'object' && data && 'message' in data && String(data.message)) ||
+      `Transbank respondio con estado ${response.status}.`;
+
+    throw new Error(message);
+  }
+
+  return data as T;
+}
+
+async function commitWebpayPayment(db: D1Database, config: TransbankConfig, token: string) {
+  const current = await findWebpayTransactionByToken(db, token);
+  const committed = await commitWebpayTransaction(config, token);
+  const orderId = committed.buy_order || current?.orderId;
+
+  if (!orderId) {
+    throw new Error('No fue posible asociar el pago de Webpay a una compra registrada.');
+  }
+
+  await updateWebpayTransactionState(db, orderId, {
+    token,
+    status: committed.status ?? 'UNKNOWN',
+    responseCode: committed.response_code ?? null,
+    authorizationCode: committed.authorization_code ?? null,
+    paymentTypeCode: committed.payment_type_code ?? null,
+    transactionDate: committed.transaction_date ?? null,
+    accountingDate: committed.accounting_date ?? null,
+    cardNumber: committed.card_detail?.card_number ?? null,
+    vci: committed.vci ?? null,
+    lastError: isApprovedWebpayTransaction(committed)
+      ? null
+      : 'Webpay no aprobo la transaccion o el cliente no finalizo correctamente el pago.',
+    rawResponse: JSON.stringify(committed),
+  });
+
+  await updateOrderPaymentStatus(db, orderId, isApprovedWebpayTransaction(committed) ? 'paid' : 'pending_payment');
+
+  return { orderId, transaction: committed };
+}
+
+async function settleAbortedWebpayTransaction(
+  db: D1Database,
+  config: TransbankConfig,
+  token: string,
+  buyOrder: string | null,
+  sessionId: string | null,
+) {
+  const current = await findWebpayTransactionByToken(db, token);
+  const orderId = current?.orderId ?? buyOrder ?? (sessionId ? await findOrderIdBySessionId(db, sessionId) : null);
+
+  let statusResponse: WebpayCommitResponse | null = null;
+
+  try {
+    statusResponse = await getWebpayTransactionStatus(config, token);
+  } catch {
+    statusResponse = null;
+  }
+
+  if (orderId) {
+    await updateWebpayTransactionState(db, orderId, {
+      token,
+      status: statusResponse?.status ?? 'ABORTED',
+      responseCode: statusResponse?.response_code ?? null,
+      authorizationCode: statusResponse?.authorization_code ?? null,
+      paymentTypeCode: statusResponse?.payment_type_code ?? null,
+      transactionDate: statusResponse?.transaction_date ?? null,
+      accountingDate: statusResponse?.accounting_date ?? null,
+      cardNumber: statusResponse?.card_detail?.card_number ?? null,
+      vci: statusResponse?.vci ?? null,
+      lastError: 'El pago fue abortado, cancelado o expirado antes de completarse.',
+      rawResponse: JSON.stringify(
+        statusResponse ?? {
+          token,
+          buyOrder,
+          sessionId,
+          status: 'ABORTED',
+        },
+      ),
+    });
+  }
+
+  return { orderId };
+}
+
+function isApprovedWebpayTransaction(transaction: WebpayCommitResponse) {
+  return transaction.status === 'AUTHORIZED' && Number(transaction.response_code ?? -1) === 0;
+}
+
+async function readIncomingParams(request: Request) {
+  const params = new URLSearchParams(new URL(request.url).search);
+  const method = request.method.toUpperCase();
+
+  if (method !== 'GET') {
+    const contentType = request.headers.get('content-type') ?? '';
+    if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
+      const form = await request.formData();
+      form.forEach((value, key) => {
+        if (typeof value === 'string') {
+          params.set(key, value);
+        }
+      });
+    }
+  }
+
+  return params;
+}
+
+function redirectToWebpayResult(appUrl: string, orderId: string | null) {
+  const target = new URL('/pago/resultado', `${appUrl}/`);
+  if (orderId) {
+    target.searchParams.set('orderId', orderId);
+  }
+
+  return Response.redirect(target.toString(), 303);
+}
+
+function normalizeWebpayState(order: OrderRecord, transaction: WebpayTransactionRecord | null) {
+  if (!transaction) {
+    return {
+      status: order.status === 'paid' ? 'approved' : 'pending',
+      title: order.status === 'paid' ? 'Pago confirmado' : 'Pago pendiente',
+      message:
+        order.status === 'paid'
+          ? 'Tu compra ya se encuentra confirmada.'
+          : 'Aun no recibimos confirmacion final de Webpay para esta compra.',
+    };
+  }
+
+  if (order.status === 'paid' && transaction.status === 'AUTHORIZED' && transaction.responseCode === 0) {
+    return {
+      status: 'approved',
+      title: 'Pago confirmado',
+      message: 'La compra fue pagada correctamente en Webpay y tus tickets ya quedaron registrados.',
+    };
+  }
+
+  if (transaction.status === 'TIMEOUT') {
+    return {
+      status: 'timeout',
+      title: 'Sesion expirada',
+      message: transaction.lastError ?? 'La sesion de Webpay expiro antes de completarse.',
+    };
+  }
+
+  if (transaction.status === 'ABORTED') {
+    return {
+      status: 'aborted',
+      title: 'Pago cancelado',
+      message: transaction.lastError ?? 'El pago fue cancelado antes de completarse en Webpay.',
+    };
+  }
+
+  if (transaction.status === 'AUTHORIZED' && transaction.responseCode !== 0) {
+    return {
+      status: 'rejected',
+      title: 'Pago no aprobado',
+      message: transaction.lastError ?? 'Webpay respondio que la transaccion no fue aprobada.',
+    };
+  }
+
+  return {
+    status: order.status === 'paid' ? 'approved' : 'pending',
+    title: order.status === 'paid' ? 'Pago confirmado' : 'Pago en revision',
+    message:
+      transaction.lastError ??
+      (order.status === 'paid'
+        ? 'La compra ya fue confirmada.'
+        : 'Todavia no se pudo determinar el estado final del pago en Webpay.'),
+  };
+}
+
+function sanitizeBuyOrder(orderId: string) {
+  return orderId.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 26);
+}
+
+function buildSessionId(orderId: string) {
+  return `sess_${orderId.replace(/[^a-zA-Z0-9]/g, '').slice(-18)}`.slice(0, 61);
+}
+
+function safeJsonParse(value: string) {
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return null;
+  }
 }
 
 function generateTicketNumbers(count: number) {

@@ -32,7 +32,7 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
 
         <aside class="purchase-card" id="checkout">
           <div class="purchase-card__header">
-            <p class="eyebrow subtle">Compra express o con cuenta</p>
+            <p class="eyebrow subtle">Compra de tickets</p>
             <h2>{{ landing.raffle.title }}</h2>
             <p>Completa tus datos, elige una opcion de tickets y continua al pago con Webpay.</p>
           </div>
@@ -81,22 +81,6 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
                 </small>
               </label>
             </div>
-
-            <div class="toggle-row">
-              <label class="check-line">
-                <input type="checkbox" formControlName="wantsAccount" />
-                <span>Quiero registrarme para futuras compras</span>
-              </label>
-              <p>Si no marcas esta opcion, la compra se hace solo con tu email.</p>
-            </div>
-
-            <label class="field" *ngIf="purchaseForm.controls.wantsAccount.value">
-              <span>Contrasena</span>
-              <input type="password" formControlName="password" placeholder="Minimo 6 caracteres" />
-              <small class="error" *ngIf="hasError('password', 'required') || hasError('password', 'minlength')">
-                La contrasena debe tener al menos 6 caracteres.
-              </small>
-            </label>
 
             <div class="payment-methods payment-methods--single">
               <p class="section-label">Medio de pago</p>
@@ -165,12 +149,13 @@ export class HomePage {
   protected readonly isSubmitting = signal(false);
   protected readonly submitError = signal('');
   protected readonly purchaseResult = signal<PurchaseResponse | null>(null);
+  protected readonly selectedPackageId = signal('');
   protected readonly totalAmount = computed(() => {
-    const selectedPackage = this.data()?.packages.find((item) => item.id === this.purchaseForm.controls.packageId.value);
+    const selectedPackage = this.data()?.packages.find((item) => item.id === this.selectedPackageId());
     return selectedPackage?.amount ?? 0;
   });
   protected readonly selectedParticipations = computed(() => {
-    const selectedPackage = this.data()?.packages.find((item) => item.id === this.purchaseForm.controls.packageId.value);
+    const selectedPackage = this.data()?.packages.find((item) => item.id === this.selectedPackageId());
     return selectedPackage ? String(selectedPackage.participations) : '-';
   });
   protected readonly purchaseForm = this.formBuilder.nonNullable.group({
@@ -178,23 +163,14 @@ export class HomePage {
     email: ['', [Validators.required, Validators.email]],
     phone: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
     packageId: ['', Validators.required],
-    wantsAccount: [false],
-    password: [''],
     paymentMethod: ['transbank', Validators.required],
     acceptedTerms: [false, Validators.requiredTrue],
   });
 
   constructor() {
     this.api.loadLanding();
-    this.purchaseForm.controls.wantsAccount.valueChanges.subscribe((wantsAccount) => {
-      const passwordControl = this.purchaseForm.controls.password;
-      if (wantsAccount) {
-        passwordControl.addValidators([Validators.required, Validators.minLength(6)]);
-      } else {
-        passwordControl.clearValidators();
-        passwordControl.setValue('');
-      }
-      passwordControl.updateValueAndValidity();
+    this.purchaseForm.controls.packageId.valueChanges.subscribe((packageId) => {
+      this.selectedPackageId.set(packageId);
     });
   }
 
@@ -210,8 +186,16 @@ export class HomePage {
     this.submitError.set('');
     this.purchaseResult.set(null);
 
-    this.api.purchase(this.purchaseForm.getRawValue()).subscribe({
+    this.api.purchase({
+      ...this.purchaseForm.getRawValue(),
+      wantsAccount: false,
+    }).subscribe({
       next: (response) => {
+        if (response.webpay?.token && response.webpay.url) {
+          this.redirectToWebpay(response.webpay.url, response.webpay.token);
+          return;
+        }
+
         this.purchaseResult.set(response);
         this.isSubmitting.set(false);
       },
@@ -266,5 +250,20 @@ export class HomePage {
     }
 
     phoneControl.setValue(formatted, { emitEvent: false });
+  }
+
+  private redirectToWebpay(url: string, token: string) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = url;
+
+    const tokenInput = document.createElement('input');
+    tokenInput.type = 'hidden';
+    tokenInput.name = 'token_ws';
+    tokenInput.value = token;
+
+    form.appendChild(tokenInput);
+    document.body.appendChild(form);
+    form.submit();
   }
 }

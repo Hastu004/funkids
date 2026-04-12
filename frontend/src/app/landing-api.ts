@@ -71,6 +71,48 @@ export interface PurchaseResponse {
   };
   nextStep: string;
   message: string;
+  webpay?: {
+    token: string;
+    url: string;
+    buyOrder: string;
+    sessionId: string;
+  };
+}
+
+export interface WebpayResultResponse {
+  orderId: string;
+  status: 'approved' | 'pending' | 'rejected' | 'aborted' | 'timeout';
+  title: string;
+  message: string;
+  participant: {
+    fullName: string;
+    email: string | null;
+    phone: string | null;
+    wantsAccount: boolean;
+  };
+  order: {
+    packageId: PackageId;
+    packageLabel: string;
+    participations: number;
+    ticketNumbers: string[];
+    amount: number;
+    paymentMethod: PaymentMethodId;
+    paymentLabel: string;
+  };
+  payment: {
+    buyOrder: string;
+    sessionId: string;
+    token: string;
+    status: string;
+    responseCode: number | null;
+    authorizationCode: string | null;
+    paymentTypeCode: string | null;
+    cardNumber: string | null;
+    transactionDate: string | null;
+    accountingDate: string | null;
+    vci: string | null;
+    lastError: string | null;
+  } | null;
 }
 
 const apiBaseUrl =
@@ -96,5 +138,11 @@ export class LandingApi {
 
   purchase(payload: Record<string, unknown>) {
     return this.http.post<PurchaseResponse>(`${apiBaseUrl}/purchase`, payload);
+  }
+
+  loadWebpayResult(orderId: string) {
+    return this.http.get<WebpayResultResponse>(`${apiBaseUrl}/webpay/result`, {
+      params: { orderId },
+    });
   }
 }
