@@ -1859,7 +1859,7 @@ function buildOrderReceiptEmail(
       : transaction?.authorizationCode
         ? `Autorizacion Webpay: ${transaction.authorizationCode}`
         : 'Pago procesado con Webpay by Transbank.';
-  const subject = `Respaldo de compra FunKids - ${order.participant.fullName}`;
+  const subject = `Confirmacion de compra FunKids - ${order.order.packageLabel}`;
   const safeName = escapeHtml(order.participant.fullName);
   const safeTickets = escapeHtml(tickets);
   const safePackage = escapeHtml(order.order.packageLabel);
@@ -1872,46 +1872,64 @@ function buildOrderReceiptEmail(
   return {
     subject,
     text: [
-      `Hola ${order.participant.fullName},`,
+      `Estimado/a ${order.participant.fullName},`,
       '',
-      'Tu compra en FunKids fue registrada correctamente.',
+      'Gracias por participar en el sorteo de FunKids.',
+      'Hemos registrado correctamente tu compra y este correo funciona como respaldo de la transaccion realizada.',
       '',
-      `Compra: ${order.id}`,
+      'Resumen de tu compra:',
+      `Numero de compra: ${order.id}`,
       `Fecha: ${orderDate}`,
-      `Modalidad: ${order.order.packageLabel}`,
-      `Tickets: ${tickets}`,
+      `Producto digital adquirido: ${order.order.packageLabel}`,
+      `Tickets asignados: ${tickets}`,
       `Participaciones: ${order.order.participations}`,
       `Total: ${total}`,
       `Estado: ${paymentStatus}`,
       `Detalle de pago: ${paymentDetail}`,
       '',
-      'Si necesitas ayuda, responde a este correo o escribe a nuestro equipo.',
+      'Conserva este correo como comprobante de compra.',
+      'Si necesitas apoyo adicional, puedes responder a este mensaje y nuestro equipo te ayudara a la brevedad.',
       '',
-      'FunKids',
+      'Agradecemos sinceramente tu confianza y participacion.',
+      '',
+      'Atentamente,',
+      'Equipo FunKids',
     ].join('\r\n'),
     html: `
-      <div style="margin:0;padding:24px;background:#f4fbff;font-family:Arial,sans-serif;color:#465071">
-        <div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:24px;padding:32px;border:1px solid rgba(91,166,216,0.14);box-shadow:0 18px 48px rgba(49,56,75,0.08)">
-          <p style="margin:0 0 16px;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4b99d6">FunKids</p>
-          <h1 style="margin:0 0 12px;font-size:30px;line-height:1.05;color:#4b99d6">Respaldo de compra</h1>
-          <p style="margin:0 0 24px;font-size:16px;line-height:1.6">Hola <strong>${safeName}</strong>, tu compra en FunKids fue registrada correctamente.</p>
-          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:20px">
-            <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Compra</strong><br />${escapeHtml(order.id)}</div>
-            <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Fecha</strong><br />${safeDate}</div>
-            <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Total</strong><br />${escapeHtml(total)}</div>
-            <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Estado</strong><br />${safeStatus}</div>
+      <div style="margin:0;padding:32px;background:#f3f9fd;font-family:Arial,sans-serif;color:#465071">
+        <div style="max-width:680px;margin:0 auto;background:#ffffff;border-radius:26px;overflow:hidden;border:1px solid rgba(91,166,216,0.14);box-shadow:0 24px 56px rgba(49,56,75,0.08)">
+          <div style="padding:28px 32px;background:linear-gradient(135deg,#4b99d6 0%,#68b5eb 100%);color:#ffffff">
+            <p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;opacity:0.9">FunKids</p>
+            <h1 style="margin:0 0 10px;font-size:30px;line-height:1.05">Confirmacion de compra</h1>
+            <p style="margin:0;font-size:15px;line-height:1.6;opacity:0.96">Gracias por participar en nuestro sorteo. A continuacion encontrarás el respaldo de tu compra.</p>
           </div>
-          <div style="padding:18px;border-radius:20px;background:linear-gradient(180deg,rgba(233,248,255,0.75),rgba(255,248,252,0.92));margin-bottom:18px">
-            <p style="margin:0 0 10px;font-size:18px;font-weight:700;color:#4b99d6">${safePackage}</p>
-            <p style="margin:0 0 8px">Participaciones: <strong>${order.order.participations}</strong></p>
-            <p style="margin:0">Tickets asignados: <strong>${safeTickets}</strong></p>
+          <div style="padding:30px 32px">
+            <p style="margin:0 0 22px;font-size:16px;line-height:1.7">Estimado/a <strong>${safeName}</strong>, hemos registrado correctamente tu compra. Te agradecemos por confiar en FunKids y formar parte de esta experiencia.</p>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:20px">
+              <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Numero de compra</strong><br />${escapeHtml(order.id)}</div>
+              <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Fecha</strong><br />${safeDate}</div>
+              <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Total pagado</strong><br />${escapeHtml(total)}</div>
+              <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Estado</strong><br />${safeStatus}</div>
+            </div>
+            <div style="padding:20px;border-radius:22px;background:linear-gradient(180deg,rgba(233,248,255,0.75),rgba(255,248,252,0.92));margin-bottom:18px">
+              <p style="margin:0 0 10px;font-size:18px;font-weight:700;color:#4b99d6">${safePackage}</p>
+              <p style="margin:0 0 8px">Participaciones asociadas: <strong>${order.order.participations}</strong></p>
+              <p style="margin:0">Tickets asignados: <strong>${safeTickets}</strong></p>
+            </div>
+            <div style="padding:20px;border-radius:22px;background:#f8fcff;margin-bottom:18px">
+              <p style="margin:0 0 8px"><strong>Email de contacto</strong>: ${safeEmail}</p>
+              <p style="margin:0 0 8px"><strong>Telefono</strong>: ${safePhone}</p>
+              <p style="margin:0"><strong>Detalle de pago</strong>: ${safePaymentDetail}</p>
+            </div>
+            <div style="padding:18px 20px;border-left:4px solid #4b99d6;background:#fbfdff;border-radius:0 18px 18px 0;margin-bottom:20px">
+              <p style="margin:0;font-size:14px;line-height:1.7">Te recomendamos conservar este correo como comprobante de tu compra. Si necesitas ayuda o deseas realizar una consulta, puedes responder a este mensaje y nuestro equipo te asistira con gusto.</p>
+            </div>
+            <p style="margin:0 0 8px;font-size:15px;line-height:1.7">Agradecemos sinceramente tu participacion.</p>
+            <p style="margin:0;font-size:15px;line-height:1.7"><strong>Equipo FunKids</strong></p>
           </div>
-          <div style="padding:18px;border-radius:20px;background:#f8fcff;margin-bottom:18px">
-            <p style="margin:0 0 8px"><strong>Email</strong>: ${safeEmail}</p>
-            <p style="margin:0 0 8px"><strong>Telefono</strong>: ${safePhone}</p>
-            <p style="margin:0"><strong>Pago</strong>: ${safePaymentDetail}</p>
+          <div style="padding:18px 32px;background:#f8fbfe;border-top:1px solid rgba(91,166,216,0.12)">
+            <p style="margin:0;font-size:13px;line-height:1.6;color:#6e7592">Este correo fue emitido automaticamente desde ${escapeHtml(smtpConfig.fromEmail)} como respaldo de tu compra en FunKids.</p>
           </div>
-          <p style="margin:0;font-size:14px;line-height:1.6;color:#6e7592">Este correo fue enviado automaticamente desde ${escapeHtml(smtpConfig.fromEmail)} como respaldo de tu compra.</p>
         </div>
       </div>
     `,
