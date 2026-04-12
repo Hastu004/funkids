@@ -8,6 +8,8 @@ import { LandingApi, type PurchaseResponse } from './landing-api';
 
 registerLocaleData(localeEsCl);
 
+const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
+
 @Component({
   selector: 'app-buy-page',
   standalone: true,
@@ -64,7 +66,17 @@ registerLocaleData(localeEsCl);
             <div class="field-grid">
               <label class="field">
                 <span>Telefono</span>
-                <input type="tel" formControlName="phone" placeholder="+56 9 1234 5678" />
+                <input
+                  type="tel"
+                  formControlName="phone"
+                  inputmode="numeric"
+                  maxlength="15"
+                  placeholder="+56 9 1234 5678"
+                  (input)="formatPhone()"
+                />
+                <small class="error" *ngIf="hasError('phone', 'required') || hasError('phone', 'pattern')">
+                  Ingresa el telefono con formato +56 9 1234 5678.
+                </small>
               </label>
 
               <label class="field">
@@ -174,7 +186,7 @@ export class BuyPage {
   protected readonly purchaseForm = this.formBuilder.nonNullable.group({
     fullName: ['', [Validators.required, Validators.minLength(3)]],
     email: ['', [Validators.required, Validators.email]],
-    phone: [''],
+    phone: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
     packageId: ['', Validators.required],
     wantsAccount: [false],
     password: [''],
@@ -223,5 +235,46 @@ export class BuyPage {
   protected hasError(controlName: keyof typeof this.purchaseForm.controls, errorName: string) {
     const control = this.purchaseForm.controls[controlName];
     return control.touched && control.hasError(errorName);
+  }
+
+  protected formatPhone() {
+    const phoneControl = this.purchaseForm.controls.phone;
+    const digits = phoneControl.value.replace(/\D/g, '').slice(0, 11);
+
+    let formatted = '';
+
+    if (digits.startsWith('56')) {
+      const nationalDigits = digits.slice(2);
+      formatted = '+56';
+
+      if (nationalDigits.length > 0) {
+        formatted += ` ${nationalDigits.slice(0, 1)}`;
+      }
+
+      if (nationalDigits.length > 1) {
+        formatted += ` ${nationalDigits.slice(1, 5)}`;
+      }
+
+      if (nationalDigits.length > 5) {
+        formatted += ` ${nationalDigits.slice(5, 9)}`;
+      }
+    } else {
+      const normalizedDigits = digits.startsWith('9') ? digits : `9${digits}`.slice(0, 9);
+      formatted = '+56';
+
+      if (normalizedDigits.length > 0) {
+        formatted += ` ${normalizedDigits.slice(0, 1)}`;
+      }
+
+      if (normalizedDigits.length > 1) {
+        formatted += ` ${normalizedDigits.slice(1, 5)}`;
+      }
+
+      if (normalizedDigits.length > 5) {
+        formatted += ` ${normalizedDigits.slice(5, 9)}`;
+      }
+    }
+
+    phoneControl.setValue(formatted, { emitEvent: false });
   }
 }
