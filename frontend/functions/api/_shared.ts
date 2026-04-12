@@ -65,36 +65,37 @@ interface AdminConfig {
   sessionSecret: string;
 }
 
+interface PagesEnv {
+  DB?: D1Database;
+  ADMIN_EMAIL?: string;
+  ADMIN_PASSWORD?: string;
+  ADMIN_SESSION_SECRET?: string;
+}
+
+interface OrderRow {
+  id: string;
+  created_at: string;
+  channel: SaleChannel;
+  status: 'paid' | 'pending_payment';
+  source_label: string;
+  notes: string | null;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  wants_account: number;
+  package_id: PackageId;
+  package_label: string;
+  participations: number;
+  amount: number;
+  payment_method: PaymentMethod;
+  payment_label: string;
+}
+
 const packages = [
   { id: 'pkg_2000' as const, amount: 2000, participations: 1, label: '$2.000 · 1 ticket' },
   { id: 'pkg_5000' as const, amount: 5000, participations: 3, label: '$5.000 · 3 tickets' },
   { id: 'pkg_15000' as const, amount: 15000, participations: 10, label: '$15.000 · 10 tickets' },
   { id: 'pkg_30000' as const, amount: 30000, participations: 25, label: '$30.000 · 25 tickets' },
-];
-
-const ordersStore: OrderRecord[] = [
-  buildOrderRecord({
-    fullName: 'Jane Doe',
-    email: 'jane@example.com',
-    phone: '+56 9 8765 4321',
-    packageId: 'pkg_5000',
-    wantsAccount: false,
-    source: 'webpay',
-    status: 'paid',
-    notes: null,
-    createdAt: '2026-04-10T15:30:00.000Z',
-  }),
-  buildOrderRecord({
-    fullName: 'Cliente Tienda',
-    email: null,
-    phone: '+56 9 6543 2109',
-    packageId: 'pkg_2000',
-    wantsAccount: false,
-    source: 'cash',
-    status: 'paid',
-    notes: 'Venta ingresada por caja.',
-    createdAt: '2026-04-11T11:15:00.000Z',
-  }),
 ];
 
 export function getLandingData() {
@@ -280,7 +281,12 @@ export function getLandingData() {
   };
 }
 
-export function createPurchase(payload: PurchasePayload) {
+export async function createPurchase(payload: PurchasePayload, env: unknown) {
+  const dbResult = getDb(env);
+  if ('error' in dbResult) {
+    return dbResult.error;
+  }
+
   const email = payload.email?.trim().toLowerCase();
   const fullName = payload.fullName?.trim();
   const wantsAccount = Boolean(payload.wantsAccount);
@@ -322,7 +328,7 @@ export function createPurchase(payload: PurchasePayload) {
     notes: null,
   });
 
-  ordersStore.unshift(record);
+  await insertOrder(dbResult.db, record);
 
   return Response.json({
     status: 'pending_payment',
@@ -360,6 +366,11 @@ export async function adminLogin(payload: AdminLoginPayload, env: unknown) {
 }
 
 export async function getAdminOrders(request: Request, env: unknown) {
+  const dbResult = getDb(env);
+  if ('error' in dbResult) {
+    return dbResult.error;
+  }
+
   const config = getAdminConfig(env);
   if ('error' in config) {
     return config.error;
@@ -370,18 +381,25 @@ export async function getAdminOrders(request: Request, env: unknown) {
     return authError;
   }
 
+  const orders = await fetchOrders(dbResult.db);
+
   return Response.json({
     profile: {
       name: 'Administrador FunKids',
       email: config.email,
       role: 'admin',
     },
-    stats: buildDashboardStats(),
-    orders: ordersStore,
+    stats: buildDashboardStats(orders),
+    orders,
   });
 }
 
 export async function createAdminCashSale(request: Request, payload: AdminCashSalePayload, env: unknown) {
+  const dbResult = getDb(env);
+  if ('error' in dbResult) {
+    return dbResult.error;
+  }
+
   const config = getAdminConfig(env);
   if ('error' in config) {
     return config.error;
@@ -424,12 +442,13 @@ export async function createAdminCashSale(request: Request, payload: AdminCashSa
     notes: payload.notes?.trim() || 'Venta ingresada por administrador.',
   });
 
-  ordersStore.unshift(record);
+  await insertOrder(dbResult.db, record);
+  const orders = await fetchOrders(dbResult.db);
 
   return Response.json({
     message: 'Venta en efectivo registrada correctamente.',
     order: record,
-    stats: buildDashboardStats(),
+    stats: buildDashboardStats(orders),
   });
 }
 
@@ -439,6 +458,11 @@ export async function updateAdminOrder(
   payload: AdminOrderUpdatePayload,
   env: unknown,
 ) {
+  const dbResult = getDb(env);
+  if ('error' in dbResult) {
+    return dbResult.error;
+  }
+
   const config = getAdminConfig(env);
   if ('error' in config) {
     return config.error;
@@ -449,12 +473,11 @@ export async function updateAdminOrder(
     return authError;
   }
 
-  const orderIndex = ordersStore.findIndex((order) => order.id === orderId);
-  if (orderIndex === -1) {
+  const currentOrder = await findOrderById(dbResult.db, orderId);
+  if (!currentOrder) {
     return jsonError('Registro no encontrado.', 404);
   }
 
-  const currentOrder = ordersStore[orderIndex];
   const selectedPackage = packages.find((item) => item.id === (payload.packageId ?? currentOrder.order.packageId));
   if (!selectedPackage) {
     return jsonError('Debes seleccionar una modalidad de tickets.', 400);
@@ -475,11 +498,9 @@ export async function updateAdminOrder(
     return jsonError('Si ingresas un email, debe ser valido.', 400);
   }
 
-  const status = payload.status === 'pending_payment' ? 'pending_payment' : 'paid';
-
   const updatedOrder: OrderRecord = {
     ...currentOrder,
-    status,
+    status: payload.status === 'pending_payment' ? 'pending_payment' : 'paid',
     notes: payload.notes?.trim() || null,
     participant: {
       ...currentOrder.participant,
@@ -497,16 +518,22 @@ export async function updateAdminOrder(
     },
   };
 
-  ordersStore[orderIndex] = updatedOrder;
+  await replaceOrder(dbResult.db, updatedOrder);
+  const orders = await fetchOrders(dbResult.db);
 
   return Response.json({
     message: 'Registro actualizado correctamente.',
     order: updatedOrder,
-    stats: buildDashboardStats(),
+    stats: buildDashboardStats(orders),
   });
 }
 
 export async function deleteAdminOrder(request: Request, orderId: string, env: unknown) {
+  const dbResult = getDb(env);
+  if ('error' in dbResult) {
+    return dbResult.error;
+  }
+
   const config = getAdminConfig(env);
   if ('error' in config) {
     return config.error;
@@ -517,25 +544,39 @@ export async function deleteAdminOrder(request: Request, orderId: string, env: u
     return authError;
   }
 
-  const orderIndex = ordersStore.findIndex((order) => order.id === orderId);
-  if (orderIndex === -1) {
+  const currentOrder = await findOrderById(dbResult.db, orderId);
+  if (!currentOrder) {
     return jsonError('Registro no encontrado.', 404);
   }
 
-  const [removedOrder] = ordersStore.splice(orderIndex, 1);
+  await dbResult.db.batch([
+    dbResult.db.prepare('DELETE FROM order_tickets WHERE order_id = ?').bind(orderId),
+    dbResult.db.prepare('DELETE FROM orders WHERE id = ?').bind(orderId),
+  ]);
+
+  const orders = await fetchOrders(dbResult.db);
 
   return Response.json({
     message: 'Registro eliminado correctamente.',
-    order: removedOrder,
-    stats: buildDashboardStats(),
+    order: currentOrder,
+    stats: buildDashboardStats(orders),
   });
 }
 
+function getDb(env: unknown): { db: D1Database } | { error: Response } {
+  const db = (env as PagesEnv | undefined)?.DB;
+  if (!db) {
+    return { error: jsonError('No hay base de datos D1 configurada.', 500) };
+  }
+
+  return { db };
+}
+
 function getAdminConfig(env: unknown): AdminConfig | { error: Response } {
-  const source = (env ?? {}) as Record<string, unknown>;
-  const email = String(source['ADMIN_EMAIL'] ?? '').trim().toLowerCase();
-  const password = String(source['ADMIN_PASSWORD'] ?? '').trim();
-  const sessionSecret = String(source['ADMIN_SESSION_SECRET'] ?? '').trim();
+  const source = (env ?? {}) as PagesEnv;
+  const email = String(source.ADMIN_EMAIL ?? '').trim().toLowerCase();
+  const password = String(source.ADMIN_PASSWORD ?? '').trim();
+  const sessionSecret = String(source.ADMIN_SESSION_SECRET ?? '').trim();
 
   if (!email || !password || !sessionSecret) {
     return {
@@ -562,15 +603,121 @@ async function ensureAdminAuthorization(request: Request, config: AdminConfig) {
   return null;
 }
 
-function buildDashboardStats() {
-  const totalRevenue = ordersStore.reduce((sum, order) => sum + order.order.amount, 0);
-  const totalTickets = ordersStore.reduce((sum, order) => sum + order.order.ticketNumbers.length, 0);
-  const totalParticipations = ordersStore.reduce((sum, order) => sum + order.order.participations, 0);
-  const cashSales = ordersStore.filter((order) => order.channel === 'cash').length;
-  const webpaySales = ordersStore.filter((order) => order.channel === 'webpay').length;
+async function fetchOrders(db: D1Database) {
+  const orderRowsResult = await db.prepare('SELECT * FROM orders ORDER BY datetime(created_at) DESC').all<OrderRow>();
+  const rows = orderRowsResult.results ?? [];
+
+  if (rows.length === 0) {
+    return [] as OrderRecord[];
+  }
+
+  const ticketQueries = rows.map((row) =>
+    db.prepare('SELECT ticket_number FROM order_tickets WHERE order_id = ? ORDER BY ticket_number ASC').bind(row.id),
+  );
+  const ticketResults = await db.batch(ticketQueries);
+
+  return rows.map((row, index) => {
+    const ticketNumbers =
+      ((ticketResults[index] as { results?: Array<{ ticket_number: string }> }).results ?? []).map(
+        (ticket) => ticket.ticket_number,
+      );
+
+    return mapOrderRow(row, ticketNumbers);
+  });
+}
+
+async function findOrderById(db: D1Database, orderId: string) {
+  const rowResult = await db.prepare('SELECT * FROM orders WHERE id = ? LIMIT 1').bind(orderId).first<OrderRow>();
+  if (!rowResult) {
+    return null;
+  }
+
+  const ticketResult = await db
+    .prepare('SELECT ticket_number FROM order_tickets WHERE order_id = ? ORDER BY ticket_number ASC')
+    .bind(orderId)
+    .all<{ ticket_number: string }>();
+
+  return mapOrderRow(rowResult, (ticketResult.results ?? []).map((ticket) => ticket.ticket_number));
+}
+
+async function insertOrder(db: D1Database, order: OrderRecord) {
+  const statements = [
+    db
+      .prepare(
+        `
+          INSERT INTO orders (
+            id, created_at, channel, status, source_label, notes,
+            full_name, email, phone, wants_account,
+            package_id, package_label, participations, amount,
+            payment_method, payment_label
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      )
+      .bind(
+        order.id,
+        order.createdAt,
+        order.channel,
+        order.status,
+        order.sourceLabel,
+        order.notes,
+        order.participant.fullName,
+        order.participant.email,
+        order.participant.phone,
+        order.participant.wantsAccount ? 1 : 0,
+        order.order.packageId,
+        order.order.packageLabel,
+        order.order.participations,
+        order.order.amount,
+        order.order.paymentMethod,
+        order.order.paymentLabel,
+      ),
+    ...order.order.ticketNumbers.map((ticketNumber) =>
+      db.prepare('INSERT INTO order_tickets (order_id, ticket_number) VALUES (?, ?)').bind(order.id, ticketNumber),
+    ),
+  ];
+
+  await db.batch(statements);
+}
+
+async function replaceOrder(db: D1Database, order: OrderRecord) {
+  await db.batch([
+    db
+      .prepare(
+        `
+          UPDATE orders
+          SET status = ?, notes = ?, full_name = ?, email = ?, phone = ?,
+              package_id = ?, package_label = ?, participations = ?, amount = ?
+          WHERE id = ?
+        `,
+      )
+      .bind(
+        order.status,
+        order.notes,
+        order.participant.fullName,
+        order.participant.email,
+        order.participant.phone,
+        order.order.packageId,
+        order.order.packageLabel,
+        order.order.participations,
+        order.order.amount,
+        order.id,
+      ),
+    db.prepare('DELETE FROM order_tickets WHERE order_id = ?').bind(order.id),
+    ...order.order.ticketNumbers.map((ticketNumber) =>
+      db.prepare('INSERT INTO order_tickets (order_id, ticket_number) VALUES (?, ?)').bind(order.id, ticketNumber),
+    ),
+  ]);
+}
+
+function buildDashboardStats(orders: OrderRecord[]) {
+  const totalRevenue = orders.reduce((sum, order) => sum + order.order.amount, 0);
+  const totalTickets = orders.reduce((sum, order) => sum + order.order.ticketNumbers.length, 0);
+  const totalParticipations = orders.reduce((sum, order) => sum + order.order.participations, 0);
+  const cashSales = orders.filter((order) => order.channel === 'cash').length;
+  const webpaySales = orders.filter((order) => order.channel === 'webpay').length;
 
   return {
-    totalOrders: ordersStore.length,
+    totalOrders: orders.length,
     totalRevenue,
     totalTickets,
     totalParticipations,
@@ -597,7 +744,7 @@ function buildOrderRecord(input: {
   }
 
   return {
-    id: `order_${Math.random().toString(36).slice(2, 10)}`,
+    id: `order_${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`,
     createdAt: input.createdAt ?? new Date().toISOString(),
     channel: input.source,
     status: input.status,
@@ -621,10 +768,34 @@ function buildOrderRecord(input: {
   } satisfies OrderRecord;
 }
 
+function mapOrderRow(row: OrderRow, ticketNumbers: string[]) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    channel: row.channel,
+    status: row.status,
+    sourceLabel: row.source_label,
+    notes: row.notes,
+    participant: {
+      fullName: row.full_name,
+      email: row.email,
+      phone: row.phone,
+      wantsAccount: Boolean(row.wants_account),
+    },
+    order: {
+      packageId: row.package_id,
+      packageLabel: row.package_label,
+      participations: row.participations,
+      ticketNumbers,
+      amount: row.amount,
+      paymentMethod: row.payment_method,
+      paymentLabel: row.payment_label,
+    },
+  } satisfies OrderRecord;
+}
+
 function generateTicketNumbers(count: number) {
-  return Array.from({ length: count }, (_, index) => {
-    return `FK-${String(1200 + index + Math.floor(Math.random() * 8000)).padStart(4, '0')}`;
-  });
+  return Array.from({ length: count }, () => `FK-${String(1200 + Math.floor(Math.random() * 8000)).padStart(4, '0')}`);
 }
 
 async function signAdminToken(config: AdminConfig) {
