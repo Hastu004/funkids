@@ -2025,6 +2025,12 @@ async function sendSmtpEmail(
     },
   );
 
+  await withTimeout(
+    socket.opened,
+    config.timeoutMs,
+    `No fue posible establecer conexion con ${config.host}:${config.port}.`,
+  );
+
   const writer = socket.writable.getWriter();
   const reader = socket.readable.getReader();
   const client = new SmtpClient(reader, writer, config.timeoutMs);
@@ -2072,9 +2078,15 @@ async function sendSmtpEmail(
     }
 
     try {
-      await socket.closed;
+      await socket.close();
     } catch {
       // Ignorado: solo necesitamos liberar la conexion.
+    }
+
+    try {
+      await withTimeout(socket.closed, 1500, 'Socket close timeout');
+    } catch {
+      // Ignorado: no queremos dejar colgado el request por el cierre del socket.
     }
   }
 }
@@ -2128,7 +2140,11 @@ class SmtpClient {
   }
 
   async sendRaw(payload: string) {
-    await this.writer.write(new TextEncoder().encode(payload));
+    await withTimeout(
+      this.writer.write(new TextEncoder().encode(payload)),
+      this.timeoutMs,
+      'El servidor SMTP no acepto datos dentro del tiempo esperado.',
+    );
   }
 
   async expect(code: number, errorMessage: string) {
