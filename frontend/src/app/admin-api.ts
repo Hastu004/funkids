@@ -45,6 +45,12 @@ export interface AdminOrder {
   };
 }
 
+export interface AdminOrderMutationResponse {
+  message: string;
+  order: AdminOrder;
+  stats: AdminDashboardResponse['stats'];
+}
+
 export interface AdminDashboardResponse {
   profile: AdminProfile;
   stats: {
@@ -88,7 +94,7 @@ export class AdminApi {
 
   createCashSale(payload: { fullName: string; email: string; phone: string; packageId: string; notes: string }) {
     return this.http
-      .post<{ message: string; order: AdminOrder; stats: AdminDashboardResponse['stats'] }>(
+      .post<AdminOrderMutationResponse>(
         `${apiBaseUrl}/admin/cash-sale`,
         payload,
         { headers: this.buildHeaders() },
@@ -104,6 +110,58 @@ export class AdminApi {
             ...current,
             stats: response.stats,
             orders: [response.order, ...current.orders],
+          });
+        }),
+      );
+  }
+
+  updateOrder(
+    orderId: string,
+    payload: {
+      fullName: string;
+      email: string;
+      phone: string;
+      packageId: string;
+      status: 'paid' | 'pending_payment';
+      notes: string;
+    },
+  ) {
+    return this.http
+      .put<AdminOrderMutationResponse>(`${apiBaseUrl}/admin/orders/${orderId}`, payload, {
+        headers: this.buildHeaders(),
+      })
+      .pipe(
+        tap((response) => {
+          const current = this.dashboard();
+          if (!current) {
+            return;
+          }
+
+          this.dashboard.set({
+            ...current,
+            stats: response.stats,
+            orders: current.orders.map((order) => (order.id === orderId ? response.order : order)),
+          });
+        }),
+      );
+  }
+
+  deleteOrder(orderId: string) {
+    return this.http
+      .delete<AdminOrderMutationResponse>(`${apiBaseUrl}/admin/orders/${orderId}`, {
+        headers: this.buildHeaders(),
+      })
+      .pipe(
+        tap((response) => {
+          const current = this.dashboard();
+          if (!current) {
+            return;
+          }
+
+          this.dashboard.set({
+            ...current,
+            stats: response.stats,
+            orders: current.orders.filter((order) => order.id !== orderId),
           });
         }),
       );

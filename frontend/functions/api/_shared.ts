@@ -26,6 +26,15 @@ export interface AdminCashSalePayload {
   notes?: string;
 }
 
+export interface AdminOrderUpdatePayload {
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  packageId?: PackageId;
+  status?: 'paid' | 'pending_payment';
+  notes?: string;
+}
+
 export interface OrderRecord {
   id: string;
   createdAt: string;
@@ -50,9 +59,11 @@ export interface OrderRecord {
   };
 }
 
-const ADMIN_EMAIL = 'admin@funkids.cl';
-const ADMIN_PASSWORD = 'Admin123!';
-const ADMIN_TOKEN = 'funkids-admin-demo-token';
+interface AdminConfig {
+  email: string;
+  password: string;
+  sessionSecret: string;
+}
 
 const packages = [
   { id: 'pkg_2000' as const, amount: 2000, participations: 1, label: '$2.000 · 1 ticket' },
@@ -95,7 +106,7 @@ export function getLandingData() {
       description: 'La compra requiere un correo valido y el pago se realiza online con Webpay.',
     },
     raffle: {
-      title: 'Cumpleanos Sonado Fun Kids',
+      title: 'Cumpleaños Soñado Fun Kids',
       drawDate: '31 de julio de 2026',
       salePeriod: '16 de abril de 2026 al 31 de julio de 2026',
       maxParticipations: 1000,
@@ -323,26 +334,38 @@ export function createPurchase(payload: PurchasePayload) {
   });
 }
 
-export function adminLogin(payload: AdminLoginPayload) {
+export async function adminLogin(payload: AdminLoginPayload, env: unknown) {
+  const config = getAdminConfig(env);
+  if ('error' in config) {
+    return config.error;
+  }
+
   const email = payload.email?.trim().toLowerCase();
   const password = payload.password?.trim();
 
-  if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
+  if (email !== config.email || password !== config.password) {
     return jsonError('Credenciales de administrador invalidas.', 401);
   }
 
+  const token = await signAdminToken(config);
+
   return Response.json({
-    token: ADMIN_TOKEN,
+    token,
     profile: {
       name: 'Administrador FunKids',
-      email: ADMIN_EMAIL,
+      email: config.email,
       role: 'admin',
     },
   });
 }
 
-export function getAdminOrders(request: Request) {
-  const authError = ensureAdminAuthorization(request);
+export async function getAdminOrders(request: Request, env: unknown) {
+  const config = getAdminConfig(env);
+  if ('error' in config) {
+    return config.error;
+  }
+
+  const authError = await ensureAdminAuthorization(request, config);
   if (authError) {
     return authError;
   }
@@ -350,7 +373,7 @@ export function getAdminOrders(request: Request) {
   return Response.json({
     profile: {
       name: 'Administrador FunKids',
-      email: ADMIN_EMAIL,
+      email: config.email,
       role: 'admin',
     },
     stats: buildDashboardStats(),
@@ -358,8 +381,13 @@ export function getAdminOrders(request: Request) {
   });
 }
 
-export function createAdminCashSale(request: Request, payload: AdminCashSalePayload) {
-  const authError = ensureAdminAuthorization(request);
+export async function createAdminCashSale(request: Request, payload: AdminCashSalePayload, env: unknown) {
+  const config = getAdminConfig(env);
+  if ('error' in config) {
+    return config.error;
+  }
+
+  const authError = await ensureAdminAuthorization(request, config);
   if (authError) {
     return authError;
   }
@@ -405,9 +433,129 @@ export function createAdminCashSale(request: Request, payload: AdminCashSalePayl
   });
 }
 
-function ensureAdminAuthorization(request: Request) {
+export async function updateAdminOrder(
+  request: Request,
+  orderId: string,
+  payload: AdminOrderUpdatePayload,
+  env: unknown,
+) {
+  const config = getAdminConfig(env);
+  if ('error' in config) {
+    return config.error;
+  }
+
+  const authError = await ensureAdminAuthorization(request, config);
+  if (authError) {
+    return authError;
+  }
+
+  const orderIndex = ordersStore.findIndex((order) => order.id === orderId);
+  if (orderIndex === -1) {
+    return jsonError('Registro no encontrado.', 404);
+  }
+
+  const currentOrder = ordersStore[orderIndex];
+  const selectedPackage = packages.find((item) => item.id === (payload.packageId ?? currentOrder.order.packageId));
+  if (!selectedPackage) {
+    return jsonError('Debes seleccionar una modalidad de tickets.', 400);
+  }
+
+  const fullName = payload.fullName?.trim();
+  if (!fullName) {
+    return jsonError('El nombre es obligatorio.', 400);
+  }
+
+  const phone = payload.phone?.trim();
+  if (!phone) {
+    return jsonError('El telefono es obligatorio.', 400);
+  }
+
+  const email = payload.email?.trim().toLowerCase() || null;
+  if (email && !isValidEmail(email)) {
+    return jsonError('Si ingresas un email, debe ser valido.', 400);
+  }
+
+  const status = payload.status === 'pending_payment' ? 'pending_payment' : 'paid';
+
+  const updatedOrder: OrderRecord = {
+    ...currentOrder,
+    status,
+    notes: payload.notes?.trim() || null,
+    participant: {
+      ...currentOrder.participant,
+      fullName,
+      email,
+      phone,
+    },
+    order: {
+      ...currentOrder.order,
+      packageId: selectedPackage.id,
+      packageLabel: selectedPackage.label,
+      participations: selectedPackage.participations,
+      ticketNumbers: generateTicketNumbers(selectedPackage.participations),
+      amount: selectedPackage.amount,
+    },
+  };
+
+  ordersStore[orderIndex] = updatedOrder;
+
+  return Response.json({
+    message: 'Registro actualizado correctamente.',
+    order: updatedOrder,
+    stats: buildDashboardStats(),
+  });
+}
+
+export async function deleteAdminOrder(request: Request, orderId: string, env: unknown) {
+  const config = getAdminConfig(env);
+  if ('error' in config) {
+    return config.error;
+  }
+
+  const authError = await ensureAdminAuthorization(request, config);
+  if (authError) {
+    return authError;
+  }
+
+  const orderIndex = ordersStore.findIndex((order) => order.id === orderId);
+  if (orderIndex === -1) {
+    return jsonError('Registro no encontrado.', 404);
+  }
+
+  const [removedOrder] = ordersStore.splice(orderIndex, 1);
+
+  return Response.json({
+    message: 'Registro eliminado correctamente.',
+    order: removedOrder,
+    stats: buildDashboardStats(),
+  });
+}
+
+function getAdminConfig(env: unknown): AdminConfig | { error: Response } {
+  const source = (env ?? {}) as Record<string, unknown>;
+  const email = String(source['ADMIN_EMAIL'] ?? '').trim().toLowerCase();
+  const password = String(source['ADMIN_PASSWORD'] ?? '').trim();
+  const sessionSecret = String(source['ADMIN_SESSION_SECRET'] ?? '').trim();
+
+  if (!email || !password || !sessionSecret) {
+    return {
+      error: jsonError('Configuracion de administrador incompleta en el servidor.', 500),
+    };
+  }
+
+  return { email, password, sessionSecret };
+}
+
+async function ensureAdminAuthorization(request: Request, config: AdminConfig) {
   const authorization = request.headers.get('authorization');
-  if (authorization !== `Bearer ${ADMIN_TOKEN}`) {
+  const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : '';
+
+  if (!token) {
+    return jsonError('No autorizado.', 401);
+  }
+
+  const isValid = await verifyAdminToken(token, config);
+  if (!isValid) {
     return jsonError('No autorizado.', 401);
   }
 
@@ -477,6 +625,51 @@ function generateTicketNumbers(count: number) {
   return Array.from({ length: count }, (_, index) => {
     return `FK-${String(1200 + index + Math.floor(Math.random() * 8000)).padStart(4, '0')}`;
   });
+}
+
+async function signAdminToken(config: AdminConfig) {
+  const expiresAt = Date.now() + 1000 * 60 * 60 * 12;
+  const payload = `${config.email}.${expiresAt}`;
+  const signature = await createSignature(payload, config.sessionSecret);
+  return `${payload}.${signature}`;
+}
+
+async function verifyAdminToken(token: string, config: AdminConfig) {
+  const parts = token.split('.');
+  if (parts.length < 3) {
+    return false;
+  }
+
+  const expiresAt = Number(parts[parts.length - 2]);
+  const signature = parts[parts.length - 1];
+  const email = parts.slice(0, -2).join('.');
+
+  if (!email || email !== config.email || !Number.isFinite(expiresAt) || expiresAt < Date.now()) {
+    return false;
+  }
+
+  const payload = `${email}.${expiresAt}`;
+  const expectedSignature = await createSignature(payload, config.sessionSecret);
+  return expectedSignature === signature;
+}
+
+async function createSignature(payload: string, secret: string) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+
+  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload));
+  return toHex(signature);
+}
+
+function toHex(buffer: ArrayBuffer) {
+  return Array.from(new Uint8Array(buffer))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 function isValidEmail(email: string) {

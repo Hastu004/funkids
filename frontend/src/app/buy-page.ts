@@ -36,7 +36,7 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
             </article>
           </div>
 
-          <a class="button secondary" routerLink="/preguntas">Ver preguntas frecuentes</a>
+          <a class="button secondary" routerLink="/bases-legales">Ver bases legales</a>
         </div>
 
         <aside class="purchase-card">

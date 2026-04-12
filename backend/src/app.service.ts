@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+import { createHmac } from 'node:crypto';
 
 type PaymentMethod = 'transbank';
 type PackageId = 'pkg_2000' | 'pkg_5000' | 'pkg_15000' | 'pkg_30000';
@@ -28,6 +29,15 @@ interface AdminCashSalePayload {
   notes?: string;
 }
 
+interface AdminOrderUpdatePayload {
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  packageId?: PackageId;
+  status?: 'paid' | 'pending_payment';
+  notes?: string;
+}
+
 interface OrderRecord {
   id: string;
   createdAt: string;
@@ -52,9 +62,11 @@ interface OrderRecord {
   };
 }
 
-const ADMIN_EMAIL = 'admin@funkids.cl';
-const ADMIN_PASSWORD = 'Admin123!';
-const ADMIN_TOKEN = 'funkids-admin-demo-token';
+interface AdminConfig {
+  email: string;
+  password: string;
+  sessionSecret: string;
+}
 
 const packages = [
   { id: 'pkg_2000' as const, amount: 2000, participations: 1, label: '$2.000 · 1 ticket' },
@@ -99,7 +111,7 @@ export class AppService {
         description: 'La compra requiere un correo valido y el pago se realiza online con Webpay.',
       },
       raffle: {
-        title: 'Cumpleanos Sonado Fun Kids',
+        title: 'Cumpleaños Soñado Fun Kids',
         drawDate: '31 de julio de 2026',
         salePeriod: '16 de abril de 2026 al 31 de julio de 2026',
         maxParticipations: 1000,
@@ -328,30 +340,32 @@ export class AppService {
   }
 
   adminLogin(payload: AdminLoginPayload) {
+    const config = this.getAdminConfig();
     const email = payload.email?.trim().toLowerCase();
     const password = payload.password?.trim();
 
-    if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
+    if (email !== config.email || password !== config.password) {
       throw new UnauthorizedException('Credenciales de administrador invalidas.');
     }
 
     return {
-      token: ADMIN_TOKEN,
+      token: this.signAdminToken(config),
       profile: {
         name: 'Administrador FunKids',
-        email: ADMIN_EMAIL,
+        email: config.email,
         role: 'admin',
       },
     };
   }
 
   getAdminOrders(authorization?: string) {
-    this.ensureAdminAuthorization(authorization);
+    const config = this.getAdminConfig();
+    this.ensureAdminAuthorization(authorization, config);
 
     return {
       profile: {
         name: 'Administrador FunKids',
-        email: ADMIN_EMAIL,
+        email: config.email,
         role: 'admin',
       },
       stats: this.buildDashboardStats(),
@@ -360,7 +374,8 @@ export class AppService {
   }
 
   createAdminCashSale(authorization: string | undefined, payload: AdminCashSalePayload) {
-    this.ensureAdminAuthorization(authorization);
+    const config = this.getAdminConfig();
+    this.ensureAdminAuthorization(authorization, config);
 
     const fullName = payload.fullName?.trim();
     const phone = payload.phone?.trim();
@@ -403,10 +418,133 @@ export class AppService {
     };
   }
 
-  private ensureAdminAuthorization(authorization?: string) {
-    if (authorization !== `Bearer ${ADMIN_TOKEN}`) {
+  updateAdminOrder(authorization: string | undefined, orderId: string, payload: AdminOrderUpdatePayload) {
+    const config = this.getAdminConfig();
+    this.ensureAdminAuthorization(authorization, config);
+
+    const orderIndex = ordersStore.findIndex((order) => order.id === orderId);
+    if (orderIndex === -1) {
+      throw new BadRequestException('Registro no encontrado.');
+    }
+
+    const currentOrder = ordersStore[orderIndex];
+    const selectedPackage = packages.find((item) => item.id === (payload.packageId ?? currentOrder.order.packageId));
+    if (!selectedPackage) {
+      throw new BadRequestException('Debes seleccionar una modalidad de tickets.');
+    }
+
+    const fullName = payload.fullName?.trim();
+    if (!fullName) {
+      throw new BadRequestException('El nombre es obligatorio.');
+    }
+
+    const phone = payload.phone?.trim();
+    if (!phone) {
+      throw new BadRequestException('El telefono es obligatorio.');
+    }
+
+    const email = payload.email?.trim().toLowerCase() || null;
+    if (email && !this.isValidEmail(email)) {
+      throw new BadRequestException('Si ingresas un email, debe ser valido.');
+    }
+
+    const status = payload.status === 'pending_payment' ? 'pending_payment' : 'paid';
+
+    const updatedOrder: OrderRecord = {
+      ...currentOrder,
+      status,
+      notes: payload.notes?.trim() || null,
+      participant: {
+        ...currentOrder.participant,
+        fullName,
+        email,
+        phone,
+      },
+      order: {
+        ...currentOrder.order,
+        packageId: selectedPackage.id,
+        packageLabel: selectedPackage.label,
+        participations: selectedPackage.participations,
+        ticketNumbers: generateTicketNumbers(selectedPackage.participations),
+        amount: selectedPackage.amount,
+      },
+    };
+
+    ordersStore[orderIndex] = updatedOrder;
+
+    return {
+      message: 'Registro actualizado correctamente.',
+      order: updatedOrder,
+      stats: this.buildDashboardStats(),
+    };
+  }
+
+  deleteAdminOrder(authorization: string | undefined, orderId: string) {
+    const config = this.getAdminConfig();
+    this.ensureAdminAuthorization(authorization, config);
+
+    const orderIndex = ordersStore.findIndex((order) => order.id === orderId);
+    if (orderIndex === -1) {
+      throw new BadRequestException('Registro no encontrado.');
+    }
+
+    const [removedOrder] = ordersStore.splice(orderIndex, 1);
+
+    return {
+      message: 'Registro eliminado correctamente.',
+      order: removedOrder,
+      stats: this.buildDashboardStats(),
+    };
+  }
+
+  private getAdminConfig(): AdminConfig {
+    const email = String(process.env.ADMIN_EMAIL ?? '').trim().toLowerCase();
+    const password = String(process.env.ADMIN_PASSWORD ?? '').trim();
+    const sessionSecret = String(process.env.ADMIN_SESSION_SECRET ?? '').trim();
+
+    if (!email || !password || !sessionSecret) {
+      throw new InternalServerErrorException('Configuracion de administrador incompleta en el servidor.');
+    }
+
+    return { email, password, sessionSecret };
+  }
+
+  private signAdminToken(config: AdminConfig) {
+    const expiresAt = Date.now() + 1000 * 60 * 60 * 12;
+    const payload = `${config.email}.${expiresAt}`;
+    const signature = this.createSignature(payload, config.sessionSecret);
+    return `${payload}.${signature}`;
+  }
+
+  private ensureAdminAuthorization(authorization: string | undefined, config: AdminConfig) {
+    const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : '';
+    if (!token) {
       throw new UnauthorizedException('No autorizado.');
     }
+
+    const parts = token.split('.');
+    if (parts.length < 3) {
+      throw new UnauthorizedException('No autorizado.');
+    }
+
+    const expiresAt = Number(parts[parts.length - 2]);
+    const signature = parts[parts.length - 1];
+    const email = parts.slice(0, -2).join('.');
+
+    if (!email || email !== config.email || !Number.isFinite(expiresAt) || expiresAt < Date.now()) {
+      throw new UnauthorizedException('No autorizado.');
+    }
+
+    const payload = `${email}.${expiresAt}`;
+    const expectedSignature = this.createSignature(payload, config.sessionSecret);
+
+    if (expectedSignature !== signature) {
+      throw new UnauthorizedException('No autorizado.');
+    }
+  }
+
+  private createSignature(payload: string, secret: string) {
+    return createHmac('sha256', secret).update(payload).digest('hex');
   }
 
   private buildDashboardStats() {

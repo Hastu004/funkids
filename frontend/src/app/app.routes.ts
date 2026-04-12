@@ -1,7 +1,6 @@
 import { Routes } from '@angular/router';
 import { AdminPage } from './admin-page';
 import { BuyPage } from './buy-page';
-import { FaqPage } from './faq-page';
 import { HomePage } from './home-page';
 import { LegalPage } from './legal-page';
 
@@ -13,10 +12,6 @@ export const routes: Routes = [
   {
     path: 'comprar',
     component: BuyPage,
-  },
-  {
-    path: 'preguntas',
-    component: FaqPage,
   },
   {
     path: 'bases-legales',

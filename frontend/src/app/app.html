@@ -1,4 +1,6 @@
 <div class="app-shell">
+  <app-ambient-background></app-ambient-background>
+
   <header class="site-header">
     <div class="site-header__inner">
       <a class="brand" routerLink="/" aria-label="FunKids">
@@ -17,7 +19,6 @@
       <nav class="nav-links" aria-label="Principal">
         <a class="nav-link" routerLink="/" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: true }">Inicio</a>
         <a class="nav-link" routerLink="/comprar" routerLinkActive="is-active">Comprar</a>
-        <a class="nav-link" routerLink="/preguntas" routerLinkActive="is-active">Preguntas</a>
         <a class="nav-link" routerLink="/bases-legales" routerLinkActive="is-active">Bases legales</a>
         <a class="nav-link" routerLink="/admin" routerLinkActive="is-active">Admin</a>
       </nav>

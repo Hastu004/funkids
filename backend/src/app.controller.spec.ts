@@ -7,6 +7,10 @@ describe('AppController', () => {
   let appController: AppController;
 
   beforeEach(async () => {
+    process.env.ADMIN_EMAIL = 'admin@funkids.cl';
+    process.env.ADMIN_PASSWORD = 'Admin123!';
+    process.env.ADMIN_SESSION_SECRET = 'test-session-secret';
+
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
       providers: [AppService],
@@ -54,11 +58,16 @@ describe('AppController', () => {
     });
 
     expect(session.profile.role).toBe('admin');
-    expect(session.token).toContain('funkids-admin');
+    expect(session.token.split('.').length).toBeGreaterThanOrEqual(3);
   });
 
   it('creates a manual cash sale for admin', () => {
-    const result = appController.createAdminCashSale('Bearer funkids-admin-demo-token', {
+    const session = appController.adminLogin({
+      email: 'admin@funkids.cl',
+      password: 'Admin123!',
+    });
+
+    const result = appController.createAdminCashSale(`Bearer ${session.token}`, {
       fullName: 'Venta Caja',
       phone: '+56 9 1234 5678',
       packageId: 'pkg_2000',

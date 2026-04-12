@@ -1,5 +1,5 @@
 import { getAdminOrders } from '../_shared';
 
-export const onRequestGet: PagesFunction = ({ request }) => {
-  return getAdminOrders(request);
+export const onRequestGet: PagesFunction = ({ request, env }) => {
+  return getAdminOrders(request, env);
 };

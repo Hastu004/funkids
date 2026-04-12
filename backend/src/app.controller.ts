@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Param, Post, Put } from '@nestjs/common';
 import { AppService } from './app.service';
 
 @Controller('api')
@@ -28,5 +28,19 @@ export class AppController {
   @Post('admin/cash-sale')
   createAdminCashSale(@Headers('authorization') authorization: string | undefined, @Body() body: Record<string, unknown>) {
     return this.appService.createAdminCashSale(authorization, body);
+  }
+
+  @Put('admin/orders/:id')
+  updateAdminOrder(
+    @Headers('authorization') authorization: string | undefined,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.appService.updateAdminOrder(authorization, id, body);
+  }
+
+  @Delete('admin/orders/:id')
+  deleteAdminOrder(@Headers('authorization') authorization: string | undefined, @Param('id') id: string) {
+    return this.appService.deleteAdminOrder(authorization, id);
   }
 }

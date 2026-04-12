@@ -12,9 +12,7 @@ import { LandingApi } from './landing-api';
       <section class="hero">
         <div class="hero-grid">
           <div class="hero-copy">
-            <p class="eyebrow">{{ landing.hero.badge }}</p>
             <h1>{{ landing.hero.title }}</h1>
-            <p class="lead">{{ landing.hero.description }}</p>
 
             <div class="hero-actions">
               <a class="button primary" routerLink="/comprar">Comprar ahora</a>
@@ -29,10 +27,6 @@ import { LandingApi } from './landing-api';
               <article class="meta-card">
                 <span>Vigencia</span>
                 <strong>{{ landing.raffle.salePeriod }}</strong>
-              </article>
-              <article class="meta-card">
-                <span>Maximo</span>
-                <strong>{{ landing.raffle.maxParticipations }} tickets</strong>
               </article>
             </div>
           </div>
@@ -50,31 +44,6 @@ import { LandingApi } from './landing-api';
             </div>
             <a class="button primary" routerLink="/comprar">Ir al checkout</a>
           </aside>
-        </div>
-      </section>
-
-      <section class="process">
-        <div class="process-copy">
-          <p class="eyebrow">Flujo pensado para convertir</p>
-          <h2>Informacion breve y basada en las bases legales.</h2>
-          <p>
-            Inicio resume el sorteo, Comprar concentra la compra de tickets y Preguntas muestra solo lo esencial.
-          </p>
-        </div>
-
-        <div class="process-steps">
-          <article>
-            <strong>1</strong>
-            <p>Revisas vigencia, fecha del sorteo y modalidades.</p>
-          </article>
-          <article>
-            <strong>2</strong>
-            <p>Completa nombre, email valido y modalidad de tickets.</p>
-          </article>
-          <article>
-            <strong>3</strong>
-            <p>Pagas con Webpay y se registra tu compra.</p>
-          </article>
         </div>
       </section>
     </main>
