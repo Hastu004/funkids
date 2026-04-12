@@ -22,7 +22,7 @@ describe('App', () => {
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Inicio');
-    expect(compiled.textContent).toContain('Comprar');
     expect(compiled.textContent).toContain('Bases legales');
+    expect(compiled.textContent).toContain('Admin');
   });
 });

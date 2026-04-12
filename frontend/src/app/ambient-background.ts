@@ -61,7 +61,10 @@ export class AmbientBackground implements AfterViewInit {
 
   ngAfterViewInit() {
     const elements = this.balloonElements.toArray().map((item) => item.nativeElement);
-    if (!elements.length || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const prefersReducedMotion =
+      typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (!elements.length || prefersReducedMotion) {
       return;
     }
     let frameId = 0;

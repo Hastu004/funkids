@@ -12,20 +12,20 @@ import { LandingApi } from './landing-api';
     <main class="page-shell admin-page" *ngIf="landing() as landingData">
       <section class="page-section admin-layout" *ngIf="session(); else loginView">
         <div class="admin-header-card">
-          <div>
+          <div class="admin-header-card__copy">
             <p class="eyebrow">Panel administrador</p>
-            <h1>Ventas y tickets del sorteo</h1>
-            <p class="lead">
-              Administra registros del sorteo con filtros, tabla paginada y exportacion compatible con Excel.
-            </p>
+            <h1 class="admin-title">Historial del sorteo</h1>
+            <p class="lead admin-lead">Filtra, edita y exporta registros desde una sola tabla.</p>
           </div>
 
           <div class="admin-header-card__actions">
             <p class="admin-user">{{ session()?.profile?.name }}</p>
-            <button class="button secondary" type="button" (click)="downloadExcel()">
-              Descargar Excel
-            </button>
-            <button class="button secondary" type="button" (click)="logout()">Cerrar sesion</button>
+            <div class="admin-header-card__buttons">
+              <button class="button secondary" type="button" (click)="downloadExcel()">
+                Descargar Excel
+              </button>
+              <button class="button secondary" type="button" (click)="logout()">Cerrar sesion</button>
+            </div>
           </div>
         </div>
 
@@ -48,9 +48,9 @@ import { LandingApi } from './landing-api';
           </article>
         </div>
 
-        <section class="admin-grid" *ngIf="dashboard() as dashboardData">
-          <aside class="admin-stack">
-            <article class="admin-card" *ngIf="editingOrder(); else emptyEditor">
+        <section class="admin-grid" [class.admin-grid--editing]="!!editingOrder()" *ngIf="dashboard() as dashboardData">
+          <aside class="admin-stack" *ngIf="editingOrder()">
+            <article class="admin-card">
               <p class="eyebrow subtle">Editar</p>
               <h2>Actualizar registro</h2>
               <p class="admin-copy">Modifica datos del cliente, estado, modalidad o nota interna.</p>
@@ -102,17 +102,6 @@ import { LandingApi } from './landing-api';
                 <p class="error server-error" *ngIf="editMessage()">{{ editMessage() }}</p>
               </form>
             </article>
-
-            <ng-template #emptyEditor>
-              <article class="admin-card admin-card--empty">
-                <p class="eyebrow subtle">Editar</p>
-                <h2>Selecciona un registro</h2>
-                <p class="admin-copy">Usa el boton editar en la tabla para actualizar un cliente existente.</p>
-                <button class="button primary" type="button" (click)="openCreateModal()">
-                  Crear venta en efectivo
-                </button>
-              </article>
-            </ng-template>
           </aside>
 
           <section class="admin-card admin-card--table">
@@ -120,7 +109,7 @@ import { LandingApi } from './landing-api';
               <div>
                 <p class="eyebrow subtle">Registros</p>
                 <h2>Historial del sorteo</h2>
-                <p class="admin-copy">Filtra por cliente, canal o estado y navega por paginas.</p>
+                <p class="admin-copy">Filtra por cliente, canal o estado.</p>
               </div>
 
               <button class="button primary admin-button admin-button--create" type="button" (click)="openCreateModal()">

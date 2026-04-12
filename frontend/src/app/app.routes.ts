@@ -1,6 +1,5 @@
 import { Routes } from '@angular/router';
 import { AdminPage } from './admin-page';
-import { BuyPage } from './buy-page';
 import { HomePage } from './home-page';
 import { LegalPage } from './legal-page';
 
@@ -11,7 +10,8 @@ export const routes: Routes = [
   },
   {
     path: 'comprar',
-    component: BuyPage,
+    redirectTo: '',
+    pathMatch: 'full',
   },
   {
     path: 'bases-legales',
