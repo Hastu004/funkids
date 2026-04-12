@@ -15,12 +15,12 @@ registerLocaleData(localeEsCl);
   template: `
     <main class="page-shell" *ngIf="data() as landing">
       <section class="page-section checkout-layout">
-        <div class="page-intro">
+        <div class="page-intro page-intro--buy">
           <p class="eyebrow">Compra de tickets</p>
           <h1>Selecciona una modalidad de tickets.</h1>
           <p class="lead">
-            El formulario solicita nombre, email valido y medio de pago. La compra se registra segun las bases del
-            sorteo.
+            El formulario solicita nombre, email valido y la modalidad de tickets. El pago se realiza online con
+            Webpay.
           </p>
 
           <div class="hero-meta">
@@ -41,7 +41,7 @@ registerLocaleData(localeEsCl);
           <div class="purchase-card__header">
             <p class="eyebrow subtle">Compra express o con cuenta</p>
             <h2>{{ landing.raffle.title }}</h2>
-            <p>Completa tus datos, elige una opcion de tickets y define cómo prefieres pagar.</p>
+            <p>Completa tus datos, elige una opcion de tickets y continua al pago con Webpay.</p>
           </div>
 
           <form [formGroup]="purchaseForm" (ngSubmit)="submitPurchase()" class="purchase-form">
@@ -95,17 +95,21 @@ registerLocaleData(localeEsCl);
               </small>
             </label>
 
-            <div class="payment-methods">
+            <div class="payment-methods payment-methods--single">
               <p class="section-label">Medio de pago</p>
-              <label
-                class="payment-option"
-                *ngFor="let method of landing.paymentMethods"
-                [class.is-selected]="purchaseForm.controls.paymentMethod.value === method.id"
-              >
-                <input type="radio" formControlName="paymentMethod" [value]="method.id" />
-                <span>
-                  <strong>{{ method.name }}</strong>
-                  <small>{{ method.description }}</small>
+              <label class="payment-option payment-option--brand is-selected">
+                <input type="radio" formControlName="paymentMethod" value="transbank" />
+                <span class="payment-option__control"></span>
+                <span class="payment-option__copy">
+                  <span class="payment-logo" aria-hidden="true">
+                    <span class="payment-logo__mark"></span>
+                    <span class="payment-logo__wording">
+                      <strong>webpay</strong>
+                      <small>by Transbank</small>
+                    </span>
+                  </span>
+                  <strong>Pagar con Webpay</strong>
+                  <small>Pago online con Transbank.</small>
                 </span>
               </label>
             </div>

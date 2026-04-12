@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 
-type PaymentMethod = 'transbank' | 'khipu';
+type PaymentMethod = 'transbank';
 type PackageId = 'pkg_2000' | 'pkg_5000' | 'pkg_15000' | 'pkg_30000';
 
 interface PurchasePayload {
@@ -30,7 +30,7 @@ export class AppService {
         badge: 'Bases legales del sorteo',
         title: 'Compra tus tickets.',
         description:
-          'La compra requiere un correo valido y el pago puede realizarse con Transbank o Khipu.',
+          'La compra requiere un correo valido y el pago se realiza online con Webpay.',
       },
     raffle: {
       title: 'Cumpleanos Sonado Fun Kids',
@@ -200,13 +200,8 @@ export class AppService {
       paymentMethods: [
         {
           id: 'transbank',
-          name: 'Transbank',
-          description: 'Pago online.',
-        },
-        {
-          id: 'khipu',
-          name: 'Khipu',
-          description: 'Pago online.',
+          name: 'Webpay',
+          description: 'Pago online con Transbank.',
         },
       ],
     };
@@ -235,7 +230,7 @@ export class AppService {
       throw new BadRequestException('Debes aceptar las bases legales.');
     }
 
-    if (!payload.paymentMethod || !['transbank', 'khipu'].includes(payload.paymentMethod)) {
+    if (payload.paymentMethod !== 'transbank') {
       throw new BadRequestException('Selecciona un medio de pago disponible.');
     }
 
@@ -262,13 +257,9 @@ export class AppService {
         ticketNumbers,
         amount: selectedPackage.amount,
         paymentMethod: payload.paymentMethod,
-        paymentLabel:
-          payload.paymentMethod === 'transbank' ? 'Transbank' : 'Khipu',
+        paymentLabel: 'Webpay by Transbank',
       },
-      nextStep:
-        payload.paymentMethod === 'transbank'
-          ? 'Redirigir al checkout de Transbank para completar el pago.'
-          : 'Redirigir a Khipu para completar la transferencia guiada.',
+      nextStep: 'Redirigir al checkout de Webpay para completar el pago.',
       message:
         'Solicitud recibida. En una integracion real, aqui se generaria la sesion de pago y se enviaria el comprobante al email del cliente.',
     };

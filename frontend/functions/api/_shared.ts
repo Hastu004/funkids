@@ -1,4 +1,4 @@
-export type PaymentMethod = 'transbank' | 'khipu';
+export type PaymentMethod = 'transbank';
 export type PackageId = 'pkg_2000' | 'pkg_5000' | 'pkg_15000' | 'pkg_30000';
 
 export interface PurchasePayload {
@@ -26,7 +26,7 @@ export function getLandingData() {
       badge: 'Bases legales del sorteo',
       title: 'Compra tus tickets.',
       description:
-        'La compra requiere un correo valido y el pago puede realizarse con Transbank o Khipu.',
+        'La compra requiere un correo valido y el pago se realiza online con Webpay.',
     },
     raffle: {
       title: 'Cumpleanos Sonado Fun Kids',
@@ -196,11 +196,8 @@ export function getLandingData() {
     paymentMethods: [
       {
         id: 'transbank',
-        name: 'Transbank', description: 'Pago online.',
-      },
-      {
-        id: 'khipu',
-        name: 'Khipu', description: 'Pago online.',
+        name: 'Webpay',
+        description: 'Pago online con Transbank.',
       },
     ],
   };
@@ -229,7 +226,7 @@ export function createPurchase(payload: PurchasePayload) {
     return jsonError('Debes aceptar las bases legales.', 400);
   }
 
-  if (!payload.paymentMethod || !['transbank', 'khipu'].includes(payload.paymentMethod)) {
+  if (payload.paymentMethod !== 'transbank') {
     return jsonError('Selecciona un medio de pago disponible.', 400);
   }
 
@@ -256,13 +253,9 @@ export function createPurchase(payload: PurchasePayload) {
       ticketNumbers,
       amount: selectedPackage.amount,
       paymentMethod: payload.paymentMethod,
-      paymentLabel:
-        payload.paymentMethod === 'transbank' ? 'Transbank' : 'Khipu',
+      paymentLabel: 'Webpay by Transbank',
     },
-    nextStep:
-      payload.paymentMethod === 'transbank'
-        ? 'Redirigir al checkout de Transbank para completar el pago.'
-        : 'Redirigir a Khipu para completar la transferencia guiada.',
+    nextStep: 'Redirigir al checkout de Webpay para completar el pago.',
     message:
       'Solicitud recibida. En una integracion real, aqui se generaria la sesion de pago y se enviaria el comprobante al email del cliente.',
   });

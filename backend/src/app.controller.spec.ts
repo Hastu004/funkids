@@ -18,7 +18,7 @@ describe('AppController', () => {
   it('returns landing data', () => {
     const landing = appController.getLandingData();
     expect(landing.brand).toBe('FunKids');
-    expect(landing.paymentMethods).toHaveLength(2);
+    expect(landing.paymentMethods).toHaveLength(1);
   });
 
   it('creates a purchase with a valid email', () => {
@@ -28,7 +28,7 @@ describe('AppController', () => {
       packageId: 'pkg_5000',
       acceptedTerms: true,
       wantsAccount: false,
-      paymentMethod: 'khipu',
+      paymentMethod: 'transbank',
     });
 
     expect(result.status).toBe('pending_payment');
@@ -42,7 +42,7 @@ describe('AppController', () => {
         email: 'correo-invalido',
         packageId: 'pkg_2000',
         acceptedTerms: true,
-        paymentMethod: 'khipu',
+        paymentMethod: 'transbank',
       }),
     ).toThrow(BadRequestException);
   });

@@ -73,7 +73,7 @@ import { LandingApi } from './landing-api';
           </article>
           <article>
             <strong>3</strong>
-            <p>Pagas con Transbank o Khipu y se registra tu compra.</p>
+            <p>Pagas con Webpay y se registra tu compra.</p>
           </article>
         </div>
       </section>
