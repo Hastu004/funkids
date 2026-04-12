@@ -87,6 +87,11 @@ interface SmtpConfig {
   timeoutMs: number;
 }
 
+interface EmailBrandAssets {
+  logoUrl: string;
+  brandName: string;
+}
+
 interface PagesEnv {
   DB?: D1Database;
   ADMIN_EMAIL?: string;
@@ -1152,6 +1157,16 @@ function getSmtpConfig(env: unknown): SmtpConfig {
   };
 }
 
+function getEmailBrandAssets(env: unknown): EmailBrandAssets {
+  const source = (env ?? {}) as PagesEnv;
+  const appUrl = String(source.PUBLIC_APP_URL ?? 'https://funkids-777.pages.dev').trim().replace(/\/$/, '');
+
+  return {
+    logoUrl: `${appUrl}/funkids-favicon.svg?v=2`,
+    brandName: 'FunKids',
+  };
+}
+
 async function ensureAdminAuthorization(request: Request, config: AdminConfig) {
   const authorization = request.headers.get('authorization');
   const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : '';
@@ -1477,7 +1492,7 @@ async function deliverOrderReceipt(
 
   const smtpConfig = getSmtpConfig(env);
   const transaction = order.channel === 'webpay' ? await findWebpayTransactionByOrderId(db, orderId) : null;
-  const receipt = buildOrderReceiptEmail(order, transaction, smtpConfig);
+  const receipt = buildOrderReceiptEmail(order, transaction, smtpConfig, getEmailBrandAssets(env));
 
   try {
     await sendSmtpEmail(smtpConfig, {
@@ -1616,7 +1631,7 @@ async function deliverInternalNotificationEmail(
 
   const smtpConfig = getSmtpConfig(env);
   const transaction = order.channel === 'webpay' ? await findWebpayTransactionByOrderId(db, orderId) : null;
-  const notification = buildInternalOrderNotificationEmail(order, transaction, smtpConfig);
+  const notification = buildInternalOrderNotificationEmail(order, transaction, smtpConfig, getEmailBrandAssets(env));
 
   try {
     await sendSmtpEmail(smtpConfig, {
@@ -2035,6 +2050,7 @@ function buildOrderReceiptEmail(
   order: OrderRecord,
   transaction: WebpayTransactionRecord | null,
   smtpConfig: SmtpConfig,
+  brandAssets: EmailBrandAssets,
 ) {
   const orderDate = formatReceiptDate(order.createdAt);
   const total = formatCurrency(order.order.amount);
@@ -2055,67 +2071,104 @@ function buildOrderReceiptEmail(
   const safePaymentDetail = escapeHtml(paymentDetail);
   const safeStatus = escapeHtml(paymentStatus);
   const safeDate = escapeHtml(orderDate);
+  const safeLogoUrl = escapeHtml(brandAssets.logoUrl);
+  const safeBrandName = escapeHtml(brandAssets.brandName);
 
   return {
-    subject,
+    subject: `Comprobante de compra FunKids | ${order.id}`,
     text: [
-      `Estimado/a ${order.participant.fullName},`,
+      `${brandAssets.brandName}`,
+      'Comprobante de compra',
       '',
-      'Gracias por participar en el sorteo de FunKids.',
-      'Hemos registrado correctamente tu compra y este correo funciona como respaldo de la transaccion realizada.',
+      `Hola ${order.participant.fullName},`,
       '',
-      'Resumen de tu compra:',
+      'Este correo confirma el registro de tu compra y sirve como comprobante de la operacion realizada.',
+      '',
+      'Datos de la compra:',
       `Numero de compra: ${order.id}`,
       `Fecha: ${orderDate}`,
-      `Producto digital adquirido: ${order.order.packageLabel}`,
+      `Producto: ${order.order.packageLabel}`,
       `Tickets asignados: ${tickets}`,
       `Participaciones: ${order.order.participations}`,
       `Total: ${total}`,
       `Estado: ${paymentStatus}`,
       `Detalle de pago: ${paymentDetail}`,
       '',
-      'Conserva este correo como comprobante de compra.',
-      'Si necesitas apoyo adicional, puedes responder a este mensaje y nuestro equipo te ayudara a la brevedad.',
+      'Conserva este mensaje como respaldo de tu compra.',
+      'Si necesitas ayuda, responde a este correo.',
       '',
-      'Agradecemos sinceramente tu confianza y participacion.',
+      'Organizador: Fun Kids Diversiones SpA',
+      'RUT: 76.844.333-5',
+      'Direccion: Avenida Balmaceda 2902, local 1010, Calama',
       '',
-      'Atentamente,',
       'Equipo FunKids',
     ].join('\r\n'),
     html: `
-      <div style="margin:0;padding:32px;background:#f3f9fd;font-family:Arial,sans-serif;color:#465071">
-        <div style="max-width:680px;margin:0 auto;background:#ffffff;border-radius:26px;overflow:hidden;border:1px solid rgba(91,166,216,0.14);box-shadow:0 24px 56px rgba(49,56,75,0.08)">
-          <div style="padding:28px 32px;background:linear-gradient(135deg,#4b99d6 0%,#68b5eb 100%);color:#ffffff">
-            <p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;opacity:0.9">FunKids</p>
-            <h1 style="margin:0 0 10px;font-size:30px;line-height:1.05">Confirmacion de compra</h1>
-            <p style="margin:0;font-size:15px;line-height:1.6;opacity:0.96">Gracias por participar en nuestro sorteo. A continuacion encontrarás el respaldo de tu compra.</p>
+      <div style="margin:0;padding:24px;background:#f7fafc;font-family:Arial,sans-serif;color:#465071">
+        <div style="max-width:680px;margin:0 auto;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #dce9f4">
+          <div style="padding:24px 28px;border-bottom:1px solid #e5eef6;background:#ffffff">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%">
+              <tr>
+                <td style="width:72px;vertical-align:top">
+                  <img
+                    src="${safeLogoUrl}"
+                    alt="${safeBrandName}"
+                    width="56"
+                    height="56"
+                    style="display:block;width:56px;height:56px;border:0"
+                  />
+                </td>
+                <td style="vertical-align:middle">
+                  <p style="margin:0 0 4px;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4b99d6">${safeBrandName}</p>
+                  <h1 style="margin:0;font-size:26px;line-height:1.1;color:#33415c">Comprobante de compra</h1>
+                </td>
+              </tr>
+            </table>
           </div>
-          <div style="padding:30px 32px">
-            <p style="margin:0 0 22px;font-size:16px;line-height:1.7">Estimado/a <strong>${safeName}</strong>, hemos registrado correctamente tu compra. Te agradecemos por confiar en FunKids y formar parte de esta experiencia.</p>
-            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:20px">
-              <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Numero de compra</strong><br />${escapeHtml(order.id)}</div>
-              <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Fecha</strong><br />${safeDate}</div>
-              <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Total pagado</strong><br />${escapeHtml(total)}</div>
-              <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Estado</strong><br />${safeStatus}</div>
+          <div style="padding:28px">
+            <p style="margin:0 0 18px;font-size:15px;line-height:1.7">Hola <strong>${safeName}</strong>, este correo confirma el registro de tu compra y sirve como comprobante de la operacion realizada.</p>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate;border-spacing:0 10px;margin:0 0 18px">
+              <tr>
+                <td style="padding:14px 16px;border:1px solid #e6eef5;border-radius:12px;background:#fbfdff">
+                  <strong style="display:block;margin-bottom:4px;color:#33415c">Numero de compra</strong>
+                  <span>${escapeHtml(order.id)}</span>
+                </td>
+                <td style="padding:14px 16px;border:1px solid #e6eef5;border-radius:12px;background:#fbfdff">
+                  <strong style="display:block;margin-bottom:4px;color:#33415c">Fecha</strong>
+                  <span>${safeDate}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:14px 16px;border:1px solid #e6eef5;border-radius:12px;background:#fbfdff">
+                  <strong style="display:block;margin-bottom:4px;color:#33415c">Total</strong>
+                  <span>${escapeHtml(total)}</span>
+                </td>
+                <td style="padding:14px 16px;border:1px solid #e6eef5;border-radius:12px;background:#fbfdff">
+                  <strong style="display:block;margin-bottom:4px;color:#33415c">Estado</strong>
+                  <span>${safeStatus}</span>
+                </td>
+              </tr>
+            </table>
+            <div style="padding:18px;border:1px solid #e6eef5;border-radius:14px;background:#ffffff;margin-bottom:16px">
+              <p style="margin:0 0 10px;font-size:18px;font-weight:700;color:#33415c">${safePackage}</p>
+              <p style="margin:0 0 8px;line-height:1.6">Participaciones: <strong>${order.order.participations}</strong></p>
+              <p style="margin:0;line-height:1.6">Tickets asignados: <strong>${safeTickets}</strong></p>
             </div>
-            <div style="padding:20px;border-radius:22px;background:linear-gradient(180deg,rgba(233,248,255,0.75),rgba(255,248,252,0.92));margin-bottom:18px">
-              <p style="margin:0 0 10px;font-size:18px;font-weight:700;color:#4b99d6">${safePackage}</p>
-              <p style="margin:0 0 8px">Participaciones asociadas: <strong>${order.order.participations}</strong></p>
-              <p style="margin:0">Tickets asignados: <strong>${safeTickets}</strong></p>
+            <div style="padding:18px;border:1px solid #e6eef5;border-radius:14px;background:#ffffff;margin-bottom:18px">
+              <p style="margin:0 0 8px;line-height:1.6"><strong>Email de contacto</strong>: ${safeEmail}</p>
+              <p style="margin:0 0 8px;line-height:1.6"><strong>Telefono</strong>: ${safePhone}</p>
+              <p style="margin:0;line-height:1.6"><strong>Detalle de pago</strong>: ${safePaymentDetail}</p>
             </div>
-            <div style="padding:20px;border-radius:22px;background:#f8fcff;margin-bottom:18px">
-              <p style="margin:0 0 8px"><strong>Email de contacto</strong>: ${safeEmail}</p>
-              <p style="margin:0 0 8px"><strong>Telefono</strong>: ${safePhone}</p>
-              <p style="margin:0"><strong>Detalle de pago</strong>: ${safePaymentDetail}</p>
+            <div style="padding:16px 18px;border-left:3px solid #4b99d6;background:#f8fbfe;border-radius:0 12px 12px 0;margin-bottom:18px">
+              <p style="margin:0;font-size:14px;line-height:1.7">Conserva este mensaje como respaldo de tu compra. Si necesitas ayuda, responde a este correo y nuestro equipo te asistira.</p>
             </div>
-            <div style="padding:18px 20px;border-left:4px solid #4b99d6;background:#fbfdff;border-radius:0 18px 18px 0;margin-bottom:20px">
-              <p style="margin:0;font-size:14px;line-height:1.7">Te recomendamos conservar este correo como comprobante de tu compra. Si necesitas ayuda o deseas realizar una consulta, puedes responder a este mensaje y nuestro equipo te asistira con gusto.</p>
-            </div>
-            <p style="margin:0 0 8px;font-size:15px;line-height:1.7">Agradecemos sinceramente tu participacion.</p>
+            <p style="margin:0 0 6px;font-size:15px;line-height:1.7">Atentamente,</p>
             <p style="margin:0;font-size:15px;line-height:1.7"><strong>Equipo FunKids</strong></p>
           </div>
-          <div style="padding:18px 32px;background:#f8fbfe;border-top:1px solid rgba(91,166,216,0.12)">
-            <p style="margin:0;font-size:13px;line-height:1.6;color:#6e7592">Este correo fue emitido automaticamente desde ${escapeHtml(smtpConfig.fromEmail)} como respaldo de tu compra en FunKids.</p>
+          <div style="padding:18px 28px;background:#f8fbfe;border-top:1px solid #e6eef5">
+            <p style="margin:0 0 6px;font-size:13px;line-height:1.6;color:#6e7592">Organizador: Fun Kids Diversiones SpA · RUT 76.844.333-5</p>
+            <p style="margin:0 0 6px;font-size:13px;line-height:1.6;color:#6e7592">Direccion: Avenida Balmaceda 2902, local 1010, Calama</p>
+            <p style="margin:0;font-size:13px;line-height:1.6;color:#6e7592">Mensaje emitido automaticamente desde ${escapeHtml(smtpConfig.fromEmail)} como comprobante de compra.</p>
           </div>
         </div>
       </div>
@@ -2127,6 +2180,7 @@ function buildInternalOrderNotificationEmail(
   order: OrderRecord,
   transaction: WebpayTransactionRecord | null,
   smtpConfig: SmtpConfig,
+  brandAssets: EmailBrandAssets,
 ) {
   const orderDate = formatReceiptDate(order.createdAt);
   const total = formatCurrency(order.order.amount);
@@ -2167,7 +2221,19 @@ function buildInternalOrderNotificationEmail(
     html: `
       <div style="margin:0;padding:24px;background:#f4fbff;font-family:Arial,sans-serif;color:#465071">
         <div style="max-width:700px;margin:0 auto;background:#ffffff;border-radius:24px;padding:32px;border:1px solid rgba(91,166,216,0.14);box-shadow:0 18px 48px rgba(49,56,75,0.08)">
-          <p style="margin:0 0 16px;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4b99d6">Alerta interna FunKids</p>
+          <div style="display:flex;align-items:center;gap:12px;margin:0 0 16px">
+            <img
+              src="${escapeHtml(brandAssets.logoUrl)}"
+              alt="${escapeHtml(brandAssets.brandName)}"
+              width="54"
+              height="54"
+              style="display:block;width:54px;height:54px;border-radius:14px;background:#f8fcff;padding:6px"
+            />
+            <div>
+              <p style="margin:0 0 6px;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4b99d6">Alerta interna ${escapeHtml(brandAssets.brandName)}</p>
+              <p style="margin:0;font-size:14px;color:#6e7592">Notificacion automatica de nueva compra</p>
+            </div>
+          </div>
           <h1 style="margin:0 0 12px;font-size:28px;line-height:1.05;color:#4b99d6">Nueva compra registrada</h1>
           <p style="margin:0 0 24px;font-size:16px;line-height:1.6">Se registro una nueva compra para <strong>${escapeHtml(order.participant.fullName)}</strong>.</p>
           <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:18px">

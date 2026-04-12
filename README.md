@@ -73,6 +73,31 @@ El frontend ya viene configurado para usar:
 - No desplegar `backend/` en Cloudflare Pages.
 - Si se cambia la estructura de carpetas, hay que actualizar esta documentacion antes de tocar la configuracion de Cloudflare.
 
+### Checklist antes de deploy
+
+Antes de hacer clic en `Save and Deploy`, revisar esto:
+
+- El deploy se esta haciendo en `Cloudflare Pages`, no en `Create a Worker`.
+- El repo seleccionado es `Hastu004/funkids`.
+- La rama de produccion es `main`.
+- `Framework preset` esta en `Angular`.
+- `Build command` esta en `npm run build`.
+- `Build output directory` esta en `dist/frontend/browser`.
+- `Root directory` esta en `frontend`.
+- No hay cambios de estructura pendientes que vuelvan obsoleta esta configuracion.
+- Si se tocaron endpoints, confirmar que `frontend/functions/api/` sigue incluido en el deploy.
+- Si se tocaron integraciones de pago, validar que no se sobrescribieron variables o rutas criticas.
+
+### Checklist despues de deploy
+
+Despues del deploy, revisar esto:
+
+- La landing carga correctamente.
+- Las rutas `/api/landing` y `/api/purchase` responden.
+- No hay errores de build ni de funciones en Cloudflare.
+- El deploy no intento publicar `backend/`.
+- Si algo cambio en Cloudflare, documentarlo aqui antes de olvidarlo.
+
 ### Que si y que no se publica hoy
 
 Se publica:
