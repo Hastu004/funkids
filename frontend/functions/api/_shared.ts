@@ -39,12 +39,12 @@ export function getLandingData() {
     prizes: [
       {
         title: 'Cumpleanos Fun Kids Puertas Abiertas - Full',
-        items: ['Hasta 25 ninos', '3 horas de duracion', 'Juegos y espacio exclusivo', 'Caja sorpresa + pase estrella'],
+        items: ['Hasta 25 niños', '3 horas de duracion', 'Juegos y espacio exclusivo', 'Caja sorpresa + pase estrella'],
       },
       {
         title: 'Feria Fun Kids',
         items: [
-          'Para 25 ninos',
+          'Para 25 niños',
           'Maquina de palomitas',
           'Maquina de burbujas',
           'Algodon de azucar',
@@ -124,12 +124,12 @@ export function getLandingData() {
         paragraphs: ['El ganador podra elegir una de las siguientes opciones.'],
         bullets: [
           'Opcion 1: Cumpleanos Fun Kids Puertas abiertas - Full.',
-          'Hasta 25 ninos.',
+          'Hasta 25 niños.',
           '3 horas de duracion.',
           'Juegos y espacio exclusivo.',
           'Caja sorpresa + pase estrella.',
           'Opcion 2: Feria Fun Kids.',
-          'Para 25 ninos.',
+          'Para 25 niños.',
           'Maquina de palomitas.',
           'Maquina de burbujas.',
           'Algodon de azucar.',
