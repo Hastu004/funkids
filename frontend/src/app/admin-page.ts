@@ -458,7 +458,7 @@ export class AdminPage implements OnDestroy {
   private readonly adminApi = inject(AdminApi);
   private readonly landingApi = inject(LandingApi);
   private readonly formBuilder = inject(FormBuilder);
-  private readonly pageSize = 8;
+  private readonly pageSize = 30;
 
   protected readonly session = computed(() => this.adminApi.session());
   protected readonly dashboard = computed(() => this.adminApi.dashboard());

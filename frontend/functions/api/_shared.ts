@@ -90,6 +90,7 @@ interface SmtpConfig {
 interface EmailBrandAssets {
   logoUrl: string;
   brandName: string;
+  brandTagline: string;
 }
 
 interface PagesEnv {
@@ -1164,7 +1165,36 @@ function getEmailBrandAssets(env: unknown): EmailBrandAssets {
   return {
     logoUrl: `${appUrl}/funkids-favicon.svg?v=2`,
     brandName: 'FunKids',
+    brandTagline: 'Diversion para pequenos grandes exploradores',
   };
+}
+
+function renderEmailBrandLockup(brandAssets: EmailBrandAssets) {
+  const safeLogoUrl = escapeHtml(brandAssets.logoUrl);
+  const safeBrandName = escapeHtml(brandAssets.brandName);
+  const safeBrandTagline = escapeHtml(brandAssets.brandTagline);
+
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td style="width:72px;vertical-align:middle;padding-right:14px">
+          <div style="width:58px;height:58px;border-radius:18px;background:linear-gradient(180deg,#fff7df 0%,#fffdfa 100%);border:1px solid #f2e5cf;position:relative;overflow:hidden;text-align:center;line-height:58px">
+            <img
+              src="${safeLogoUrl}"
+              alt="${safeBrandName}"
+              width="42"
+              height="42"
+              style="display:inline-block;width:42px;height:42px;vertical-align:middle;border:0"
+            />
+          </div>
+        </td>
+        <td style="vertical-align:middle">
+          <div style="font-size:28px;line-height:1;font-weight:800;color:#ff7f3f;font-family:Trebuchet MS,Arial,sans-serif">${safeBrandName}</div>
+          <div style="margin-top:5px;font-size:12px;line-height:1.4;color:#6e7592">${safeBrandTagline}</div>
+        </td>
+      </tr>
+    </table>
+  `;
 }
 
 async function ensureAdminAuthorization(request: Request, config: AdminConfig) {
@@ -2071,7 +2101,6 @@ function buildOrderReceiptEmail(
   const safePaymentDetail = escapeHtml(paymentDetail);
   const safeStatus = escapeHtml(paymentStatus);
   const safeDate = escapeHtml(orderDate);
-  const safeLogoUrl = escapeHtml(brandAssets.logoUrl);
   const safeBrandName = escapeHtml(brandAssets.brandName);
 
   return {
@@ -2109,16 +2138,10 @@ function buildOrderReceiptEmail(
           <div style="padding:24px 28px;border-bottom:1px solid #e5eef6;background:#ffffff">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%">
               <tr>
-                <td style="width:72px;vertical-align:top">
-                  <img
-                    src="${safeLogoUrl}"
-                    alt="${safeBrandName}"
-                    width="56"
-                    height="56"
-                    style="display:block;width:56px;height:56px;border:0"
-                  />
-                </td>
                 <td style="vertical-align:middle">
+                  ${renderEmailBrandLockup(brandAssets)}
+                </td>
+                <td style="vertical-align:middle;text-align:right">
                   <p style="margin:0 0 4px;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4b99d6">${safeBrandName}</p>
                   <h1 style="margin:0;font-size:26px;line-height:1.1;color:#33415c">Comprobante de compra</h1>
                 </td>
@@ -2221,18 +2244,12 @@ function buildInternalOrderNotificationEmail(
     html: `
       <div style="margin:0;padding:24px;background:#f4fbff;font-family:Arial,sans-serif;color:#465071">
         <div style="max-width:700px;margin:0 auto;background:#ffffff;border-radius:24px;padding:32px;border:1px solid rgba(91,166,216,0.14);box-shadow:0 18px 48px rgba(49,56,75,0.08)">
-          <div style="display:flex;align-items:center;gap:12px;margin:0 0 16px">
-            <img
-              src="${escapeHtml(brandAssets.logoUrl)}"
-              alt="${escapeHtml(brandAssets.brandName)}"
-              width="54"
-              height="54"
-              style="display:block;width:54px;height:54px;border-radius:14px;background:#f8fcff;padding:6px"
-            />
-            <div>
-              <p style="margin:0 0 6px;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4b99d6">Alerta interna ${escapeHtml(brandAssets.brandName)}</p>
-              <p style="margin:0;font-size:14px;color:#6e7592">Notificacion automatica de nueva compra</p>
-            </div>
+          <div style="margin:0 0 16px">
+            ${renderEmailBrandLockup(brandAssets)}
+          </div>
+          <div style="margin:0 0 18px">
+            <p style="margin:0 0 6px;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4b99d6">Alerta interna ${escapeHtml(brandAssets.brandName)}</p>
+            <p style="margin:0;font-size:14px;color:#6e7592">Notificacion automatica de nueva compra</p>
           </div>
           <h1 style="margin:0 0 12px;font-size:28px;line-height:1.05;color:#4b99d6">Nueva compra registrada</h1>
           <p style="margin:0 0 24px;font-size:16px;line-height:1.6">Se registro una nueva compra para <strong>${escapeHtml(order.participant.fullName)}</strong>.</p>

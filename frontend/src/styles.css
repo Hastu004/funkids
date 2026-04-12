@@ -961,7 +961,7 @@ p {
 
 .admin-layout.page-section,
 .admin-login.page-section {
-  width: min(1340px, calc(100% - 2rem));
+  width: min(1440px, calc(100% - 1.25rem));
 }
 
 .admin-header-card,
@@ -977,7 +977,7 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.25rem;
+  padding: 0.9rem 1.1rem;
   border-radius: 2rem;
 }
 
@@ -987,43 +987,45 @@ p {
 
 .admin-header-card__actions {
   display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
+  flex-direction: row;
+  gap: 0.9rem;
   justify-items: end;
-  align-items: flex-end;
+  align-items: center;
   flex: 0 0 auto;
 }
 
 .admin-header-card__buttons {
   display: flex;
-  gap: 0.65rem;
+  gap: 0.55rem;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
 
 .admin-title {
-  font-size: clamp(2.4rem, 4.6vw, 4rem);
-  line-height: 0.94;
-  max-width: 11ch;
+  font-size: clamp(2rem, 3.8vw, 3.2rem);
+  line-height: 0.96;
+  max-width: none;
 }
 
 .admin-lead {
-  margin-top: 0.55rem;
+  margin-top: 0.35rem;
   margin-bottom: 0;
-  max-width: 34rem;
+  max-width: 42rem;
+  font-size: 0.98rem;
 }
 
 .admin-user {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 800;
   color: var(--fk-sky-deep);
+  white-space: nowrap;
 }
 
 .admin-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.8rem;
+  gap: 0.65rem;
 }
 
 .admin-grid {
@@ -1043,7 +1045,7 @@ p {
 }
 
 .admin-card {
-  padding: 1.1rem 1.2rem;
+  padding: 1rem 1.05rem;
   border-radius: 1.8rem;
 }
 
@@ -1054,24 +1056,25 @@ p {
 
 .admin-card--table {
   overflow: hidden;
-  min-height: 700px;
+  min-height: 560px;
 }
 
 .admin-copy {
-  margin-bottom: 0.7rem;
+  margin-bottom: 0.5rem;
   color: #6e7592;
+  font-size: 0.96rem;
 }
 
 .admin-table-header {
   display: flex;
   align-items: start;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.8rem;
 }
 
 .admin-table-header__actions {
   display: flex;
-  gap: 0.7rem;
+  gap: 0.55rem;
   align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -1080,8 +1083,8 @@ p {
 .admin-table-header h2,
 .admin-card--empty h2,
 .admin-card h2 {
-  margin-bottom: 0.35rem;
-  font-size: clamp(1.9rem, 2.4vw, 2.4rem);
+  margin-bottom: 0.25rem;
+  font-size: clamp(1.6rem, 2vw, 2.1rem);
   line-height: 1;
 }
 
@@ -1094,25 +1097,26 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-top: 0.9rem;
-  padding: 1rem 1.05rem;
+  margin-top: 0.7rem;
+  padding: 0.8rem 0.95rem;
   border-radius: 1.45rem;
   background: linear-gradient(180deg, rgba(233, 248, 255, 0.82), rgba(255, 248, 252, 0.94));
   border: 1px solid rgba(91, 166, 216, 0.14);
 }
 
 .admin-winner-card h3 {
-  margin: 0.15rem 0 0;
-  font-size: 1.3rem;
+  margin: 0.1rem 0 0;
+  font-size: 1.05rem;
   color: var(--fk-sky-deep);
 }
 
 .admin-winner-card__meta {
   display: grid;
-  gap: 0.2rem;
+  gap: 0.1rem;
   justify-items: end;
   text-align: right;
   color: #6e7592;
+  font-size: 0.95rem;
 }
 
 .admin-winner-card__meta strong {
@@ -1121,9 +1125,9 @@ p {
 
 .admin-filters {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(180px, 220px) minmax(180px, 220px);
-  gap: 0.9rem;
-  margin: 0.8rem 0 1rem;
+  grid-template-columns: minmax(0, 1.7fr) minmax(150px, 190px) minmax(150px, 190px);
+  gap: 0.7rem;
+  margin: 0.65rem 0 0.8rem;
 }
 
 .admin-table-wrap {
@@ -1133,19 +1137,19 @@ p {
 .admin-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 980px;
+  min-width: 900px;
 }
 
 .admin-table th,
 .admin-table td {
-  padding: 0.8rem 0.72rem;
+  padding: 0.6rem 0.55rem;
   border-bottom: 1px solid rgba(91, 166, 216, 0.12);
   text-align: left;
   vertical-align: top;
 }
 
 .admin-table th {
-  font-size: 0.78rem;
+  font-size: 0.73rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #8f94aa;
@@ -1158,24 +1162,26 @@ p {
 
 .admin-table td strong {
   color: var(--fk-sky-deep);
+  font-size: 0.98rem;
 }
 
 .admin-table td small {
-  margin-top: 0.2rem;
+  margin-top: 0.14rem;
   color: #6e7592;
-  line-height: 1.45;
+  line-height: 1.35;
+  font-size: 0.88rem;
 }
 
 .admin-row-actions,
 .admin-inline-actions,
 .admin-pagination {
   display: flex;
-  gap: 0.7rem;
+  gap: 0.5rem;
   align-items: center;
 }
 
 .admin-row-actions {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .admin-inline-actions {
@@ -1183,9 +1189,10 @@ p {
 }
 
 .admin-button {
-  min-height: 2.5rem;
-  padding: 0.55rem 0.9rem;
-  font-size: 0.92rem;
+  min-height: 2.2rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.86rem;
+  white-space: nowrap;
 }
 
 .admin-button.danger {
@@ -1201,13 +1208,14 @@ p {
 
 .admin-pagination {
   justify-content: space-between;
-  margin-top: 1rem;
+  margin-top: 0.8rem;
   flex-wrap: wrap;
 }
 
 .admin-pagination p {
   margin: 0;
   color: #6e7592;
+  font-size: 0.95rem;
 }
 
 .admin-modal-backdrop {
