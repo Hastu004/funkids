@@ -10,6 +10,8 @@ type BalloonConfig = {
   delay: number;
   color: string;
   opacity: number;
+  stringHeight: number;
+  blur: number;
 };
 
 @Component({
@@ -28,12 +30,16 @@ type BalloonConfig = {
         [style.left.%]="item.x"
         [style.top.%]="item.y"
         [style.width.px]="item.size"
-        [style.height.px]="item.size * 1.18"
+        [style.height.px]="item.size * 1.3"
         [style.--ambient-color]="item.color"
         [style.--ambient-opacity]="item.opacity"
         [style.--ambient-delay.s]="item.delay"
+        [style.--ambient-string-height.px]="item.stringHeight"
+        [style.--ambient-blur.px]="item.blur"
       >
+        <span class="ambient-balloon__halo"></span>
         <span class="ambient-balloon__shine"></span>
+        <span class="ambient-balloon__knot"></span>
         <span class="ambient-balloon__string"></span>
       </div>
     </div>
@@ -45,15 +51,19 @@ export class AmbientBackground implements AfterViewInit {
   @ViewChildren('balloon') private readonly balloonElements!: QueryList<ElementRef<HTMLElement>>;
 
   protected readonly balloons: BalloonConfig[] = [
-    { x: 6, y: 72, size: 52, speed: 0.22, sway: 18, delay: 0, color: 'rgba(248, 200, 95, 0.38)', opacity: 0.82 },
-    { x: 18, y: 26, size: 62, speed: 0.18, sway: 14, delay: 0.6, color: 'rgba(91, 166, 216, 0.28)', opacity: 0.8 },
-    { x: 81, y: 18, size: 72, speed: 0.2, sway: 20, delay: 0.2, color: 'rgba(234, 147, 184, 0.22)', opacity: 0.76 },
-    { x: 91, y: 66, size: 58, speed: 0.16, sway: 16, delay: 0.9, color: 'rgba(151, 100, 154, 0.17)', opacity: 0.72 },
-    { x: 68, y: 84, size: 48, speed: 0.12, sway: 12, delay: 0.35, color: 'rgba(91, 166, 216, 0.18)', opacity: 0.7 },
+    { x: 7, y: 74, size: 72, speed: 0.16, sway: 20, delay: 0, color: 'rgba(248, 200, 95, 0.18)', opacity: 0.72, stringHeight: 132, blur: 0 },
+    { x: 16, y: 19, size: 86, speed: 0.13, sway: 18, delay: 0.55, color: 'rgba(91, 166, 216, 0.18)', opacity: 0.7, stringHeight: 150, blur: 0 },
+    { x: 34, y: 65, size: 60, speed: 0.15, sway: 14, delay: 1.1, color: 'rgba(234, 147, 184, 0.14)', opacity: 0.62, stringHeight: 118, blur: 1 },
+    { x: 78, y: 14, size: 92, speed: 0.12, sway: 22, delay: 0.25, color: 'rgba(91, 166, 216, 0.14)', opacity: 0.66, stringHeight: 164, blur: 0 },
+    { x: 90, y: 58, size: 74, speed: 0.14, sway: 16, delay: 0.95, color: 'rgba(151, 100, 154, 0.12)', opacity: 0.58, stringHeight: 138, blur: 1 },
+    { x: 62, y: 82, size: 56, speed: 0.11, sway: 12, delay: 0.4, color: 'rgba(248, 200, 95, 0.1)', opacity: 0.48, stringHeight: 110, blur: 1 },
   ];
 
   ngAfterViewInit() {
     const elements = this.balloonElements.toArray().map((item) => item.nativeElement);
+    if (!elements.length || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
     let frameId = 0;
     const start = performance.now();
 
@@ -62,10 +72,10 @@ export class AmbientBackground implements AfterViewInit {
 
       elements.forEach((element, index) => {
         const config = this.balloons[index];
-        const floatY = Math.sin(elapsed * config.speed + config.delay) * 18;
+        const floatY = Math.sin(elapsed * config.speed + config.delay) * 22;
         const driftX = Math.cos(elapsed * (config.speed + 0.07) + config.delay) * config.sway;
-        const rotate = Math.sin(elapsed * (config.speed + 0.04) + config.delay) * 2.4;
-        const scale = 1 + Math.sin(elapsed * (config.speed + 0.02) + config.delay) * 0.02;
+        const rotate = Math.sin(elapsed * (config.speed + 0.04) + config.delay) * 2.2;
+        const scale = 1 + Math.sin(elapsed * (config.speed + 0.015) + config.delay) * 0.018;
 
         element.style.transform = `translate3d(${driftX}px, ${floatY}px, 0) rotate(${rotate}deg) scale(${scale})`;
       });
