@@ -1,8 +1,14 @@
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, computed, inject, OnDestroy, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { AdminApi, type AdminOrder } from './admin-api';
+import { AdminApi, type AdminOrder, type AdminRaffleWinner } from './admin-api';
 import { LandingApi } from './landing-api';
+
+interface WinnerPreview {
+  fullName: string;
+  ticketNumber: string;
+  packageLabel: string;
+}
 
 @Component({
   selector: 'app-admin-page',
@@ -11,7 +17,7 @@ import { LandingApi } from './landing-api';
   template: `
     <main class="page-shell admin-page" *ngIf="landing() as landingData">
       <aside class="toast-message" *ngIf="toast() as toastState" [class.toast-message--error]="toastState.type === 'error'">
-        <strong>{{ toastState.type === 'success' ? 'Correo enviado' : 'No se pudo enviar' }}</strong>
+        <strong>{{ toastState.title }}</strong>
         <p>{{ toastState.message }}</p>
       </aside>
 
@@ -117,10 +123,30 @@ import { LandingApi } from './landing-api';
                 <p class="admin-copy">Filtra por cliente, canal o estado.</p>
               </div>
 
-              <button class="button primary admin-button admin-button--create" type="button" (click)="openCreateModal()">
-                Crear venta
-              </button>
+              <div class="admin-table-header__actions">
+                <button class="button secondary admin-button" type="button" (click)="openDrawModal()">
+                  Elegir ganador
+                </button>
+                <button class="button primary admin-button admin-button--create" type="button" (click)="openCreateModal()">
+                  Crear venta
+                </button>
+              </div>
             </div>
+
+            <article class="admin-winner-card" *ngIf="dashboardData.latestWinner as latestWinner">
+              <div>
+                <p class="eyebrow subtle">Ultimo ganador</p>
+                <h3>{{ latestWinner.fullName }}</h3>
+                <p class="admin-copy">
+                  Ticket ganador {{ latestWinner.ticketNumber }} · {{ latestWinner.packageLabel }}
+                </p>
+              </div>
+
+              <div class="admin-winner-card__meta">
+                <span>{{ latestWinner.createdAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+                <strong>{{ latestWinner.amount | currency: 'CLP' : 'symbol-narrow' : '1.0-0' : 'es-CL' }}</strong>
+              </div>
+            </article>
 
             <div class="admin-filters">
               <label class="field">
@@ -304,6 +330,99 @@ import { LandingApi } from './landing-api';
         </article>
       </div>
 
+      <div class="admin-modal-backdrop" *ngIf="isDrawModalOpen()" (click)="closeDrawModal()">
+        <article class="admin-modal admin-modal--winner" (click)="$event.stopPropagation()">
+          <div class="admin-modal__header">
+            <div>
+              <p class="eyebrow subtle">Sorteo</p>
+              <h2>Elegir ganador</h2>
+              <p class="admin-copy">Se considera una entrada por cada ticket pagado para que mas tickets impliquen mas probabilidad.</p>
+            </div>
+
+            <button class="button secondary admin-button" type="button" (click)="closeDrawModal()" [disabled]="isDrawingWinner()">
+              Cerrar
+            </button>
+          </div>
+
+          <section class="winner-draw-panel" *ngIf="!revealedWinner(); else winnerReveal">
+            <div class="winner-draw-spinner" [class.winner-draw-spinner--active]="isDrawingWinner()">
+              <span class="winner-draw-spinner__halo"></span>
+              <span class="winner-draw-spinner__dot"></span>
+              <p class="eyebrow subtle">Seleccion aleatoria</p>
+              <h3>{{ animatedWinnerPreview()?.fullName || 'Listo para sortear' }}</h3>
+              <p class="admin-copy">
+                {{
+                  animatedWinnerPreview()
+                    ? animatedWinnerPreview()?.ticketNumber + ' · ' + animatedWinnerPreview()?.packageLabel
+                    : 'Usa el boton para iniciar el sorteo ponderado por tickets.'
+                }}
+              </p>
+            </div>
+
+            <div class="winner-draw-stats">
+              <article class="meta-card">
+                <span>Clientes habilitados</span>
+                <strong>{{ eligiblePaidCustomersCount() }}</strong>
+              </article>
+              <article class="meta-card">
+                <span>Tickets habilitados</span>
+                <strong>{{ eligiblePaidTicketsCount() }}</strong>
+              </article>
+            </div>
+
+            <div class="admin-inline-actions">
+              <button class="button primary" type="button" (click)="startWinnerDraw()" [disabled]="isDrawingWinner()">
+                {{ isDrawingWinner() ? 'Barajando tickets...' : 'Sortear ahora' }}
+              </button>
+            </div>
+
+            <p class="error server-error" *ngIf="drawWinnerError()">{{ drawWinnerError() }}</p>
+          </section>
+
+          <ng-template #winnerReveal>
+            <section class="winner-reveal-card" *ngIf="revealedWinner() as winner">
+              <p class="eyebrow subtle">Ganador confirmado</p>
+              <h3>{{ winner.fullName }}</h3>
+              <p class="winner-reveal-card__ticket">Ticket ganador {{ winner.ticketNumber }}</p>
+
+              <dl class="winner-reveal-grid">
+                <div>
+                  <dt>Email</dt>
+                  <dd>{{ winner.email || 'Sin email' }}</dd>
+                </div>
+                <div>
+                  <dt>Telefono</dt>
+                  <dd>{{ winner.phone || 'Sin telefono' }}</dd>
+                </div>
+                <div>
+                  <dt>Modalidad</dt>
+                  <dd>{{ winner.packageLabel }}</dd>
+                </div>
+                <div>
+                  <dt>Tickets del cliente</dt>
+                  <dd>{{ winner.ticketCount }}</dd>
+                </div>
+                <div>
+                  <dt>Total compra</dt>
+                  <dd>{{ winner.amount | currency: 'CLP' : 'symbol-narrow' : '1.0-0' : 'es-CL' }}</dd>
+                </div>
+                <div>
+                  <dt>Fecha sorteo</dt>
+                  <dd>{{ winner.createdAt | date: 'dd/MM/yyyy HH:mm' }}</dd>
+                </div>
+              </dl>
+
+              <div class="admin-inline-actions">
+                <button class="button primary" type="button" (click)="runAnotherDraw()">
+                  Sortear nuevamente
+                </button>
+                <button class="button secondary" type="button" (click)="closeDrawModal()">Cerrar</button>
+              </div>
+            </section>
+          </ng-template>
+        </article>
+      </div>
+
       <ng-template #loginView>
         <section class="page-section admin-login">
           <article class="admin-card admin-card--login">
@@ -350,16 +469,23 @@ export class AdminPage implements OnDestroy {
   protected readonly currentPage = signal(1);
   protected readonly editingOrder = signal<AdminOrder | null>(null);
   protected readonly isCreateModalOpen = signal(false);
+  protected readonly isDrawModalOpen = signal(false);
   protected readonly isLoggingIn = signal(false);
   protected readonly isSavingCashSale = signal(false);
   protected readonly isUpdatingOrder = signal(false);
+  protected readonly isDrawingWinner = signal(false);
   protected readonly resendingEmailOrderId = signal<string | null>(null);
   protected readonly loginError = signal('');
   protected readonly cashSaleMessage = signal('');
   protected readonly editMessage = signal('');
-  protected readonly toast = signal<{ type: 'success' | 'error'; message: string } | null>(null);
+  protected readonly drawWinnerError = signal('');
+  protected readonly revealedWinner = signal<AdminRaffleWinner | null>(null);
+  protected readonly animatedWinnerPreview = signal<WinnerPreview | null>(null);
+  protected readonly toast = signal<{ type: 'success' | 'error'; title: string; message: string } | null>(null);
 
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
+  private winnerAnimationTimer: ReturnType<typeof setInterval> | null = null;
+  private winnerRevealTimer: ReturnType<typeof setTimeout> | null = null;
 
   protected readonly filteredOrders = computed(() => {
     const dashboard = this.dashboard();
@@ -408,6 +534,13 @@ export class AdminPage implements OnDestroy {
   protected readonly paginationEnd = computed(() => {
     return Math.min(this.paginationStart() + this.paginatedOrders().length - 1, this.filteredOrders().length);
   });
+  protected readonly eligiblePaidOrders = computed(() =>
+    (this.dashboard()?.orders ?? []).filter((order) => order.status === 'paid' && order.order.ticketNumbers.length > 0),
+  );
+  protected readonly eligiblePaidTicketsCount = computed(() =>
+    this.eligiblePaidOrders().reduce((sum, order) => sum + order.order.ticketNumbers.length, 0),
+  );
+  protected readonly eligiblePaidCustomersCount = computed(() => this.eligiblePaidOrders().length);
 
   protected readonly loginForm = this.formBuilder.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
@@ -443,6 +576,8 @@ export class AdminPage implements OnDestroy {
     if (this.toastTimer) {
       clearTimeout(this.toastTimer);
     }
+
+    this.clearWinnerAnimation();
   }
 
   protected submitLogin() {
@@ -588,13 +723,81 @@ export class AdminPage implements OnDestroy {
     this.adminApi.resendOrderEmail(order.id).subscribe({
       next: (response) => {
         this.resendingEmailOrderId.set(null);
-        this.showToast('success', response.message);
+        this.showToast('success', 'Correo enviado', response.message);
       },
       error: (error) => {
         this.resendingEmailOrderId.set(null);
-        this.showToast('error', error.error?.message ?? 'No fue posible reenviar el correo.');
+        this.showToast('error', 'No se pudo enviar', error.error?.message ?? 'No fue posible reenviar el correo.');
       },
     });
+  }
+
+  protected openDrawModal() {
+    this.drawWinnerError.set('');
+    this.revealedWinner.set(null);
+    this.animatedWinnerPreview.set(null);
+    this.isDrawModalOpen.set(true);
+  }
+
+  protected closeDrawModal() {
+    if (this.isDrawingWinner()) {
+      return;
+    }
+
+    this.drawWinnerError.set('');
+    this.revealedWinner.set(null);
+    this.animatedWinnerPreview.set(null);
+    this.isDrawModalOpen.set(false);
+    this.clearWinnerAnimation();
+  }
+
+  protected startWinnerDraw() {
+    if (this.isDrawingWinner()) {
+      return;
+    }
+
+    const ticketPool = this.buildWinnerPreviewPool();
+    if (ticketPool.length === 0) {
+      this.drawWinnerError.set('No hay compras pagadas con tickets disponibles para realizar el sorteo.');
+      return;
+    }
+
+    this.drawWinnerError.set('');
+    this.revealedWinner.set(null);
+    this.isDrawingWinner.set(true);
+    this.isDrawModalOpen.set(true);
+    this.animatedWinnerPreview.set(ticketPool[0] ?? null);
+    this.startWinnerAnimation(ticketPool);
+
+    const drawStartedAt = Date.now();
+    const minimumAnimationMs = 3200;
+
+    this.adminApi.drawWinner().subscribe({
+      next: (response) => {
+        const delay = Math.max(0, minimumAnimationMs - (Date.now() - drawStartedAt));
+        this.winnerRevealTimer = setTimeout(() => {
+          this.clearWinnerAnimation();
+          this.revealedWinner.set(response.winner);
+          this.animatedWinnerPreview.set({
+            fullName: response.winner.fullName,
+            ticketNumber: response.winner.ticketNumber,
+            packageLabel: response.winner.packageLabel,
+          });
+          this.isDrawingWinner.set(false);
+          this.showToast('success', 'Ganador seleccionado', response.message);
+        }, delay);
+      },
+      error: (error) => {
+        this.clearWinnerAnimation();
+        this.isDrawingWinner.set(false);
+        this.drawWinnerError.set(error.error?.message ?? 'No fue posible completar el sorteo.');
+      },
+    });
+  }
+
+  protected runAnotherDraw() {
+    this.revealedWinner.set(null);
+    this.startWinnerDraw();
   }
 
   protected setSearch(value: string) {
@@ -645,8 +848,8 @@ export class AdminPage implements OnDestroy {
     this.isCreateModalOpen.set(false);
   }
 
-  private showToast(type: 'success' | 'error', message: string) {
-    this.toast.set({ type, message });
+  private showToast(type: 'success' | 'error', title: string, message: string) {
+    this.toast.set({ type, title, message });
 
     if (this.toastTimer) {
       clearTimeout(this.toastTimer);
@@ -668,6 +871,36 @@ export class AdminPage implements OnDestroy {
         this.loginError.set('La sesion admin expiro. Vuelve a ingresar.');
       },
     });
+  }
+
+  private buildWinnerPreviewPool() {
+    return this.eligiblePaidOrders().flatMap((order) =>
+      order.order.ticketNumbers.map((ticketNumber) => ({
+        fullName: order.participant.fullName,
+        ticketNumber,
+        packageLabel: order.order.packageLabel,
+      })),
+    );
+  }
+
+  private startWinnerAnimation(pool: WinnerPreview[]) {
+    this.clearWinnerAnimation();
+    this.winnerAnimationTimer = setInterval(() => {
+      const nextIndex = Math.floor(Math.random() * pool.length);
+      this.animatedWinnerPreview.set(pool[nextIndex] ?? pool[0] ?? null);
+    }, 110);
+  }
+
+  private clearWinnerAnimation() {
+    if (this.winnerAnimationTimer) {
+      clearInterval(this.winnerAnimationTimer);
+      this.winnerAnimationTimer = null;
+    }
+
+    if (this.winnerRevealTimer) {
+      clearTimeout(this.winnerRevealTimer);
+      this.winnerRevealTimer = null;
+    }
   }
 }
 

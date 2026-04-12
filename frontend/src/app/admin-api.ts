@@ -57,6 +57,26 @@ export interface AdminReceiptResponse {
   orderId: string;
 }
 
+export interface AdminRaffleWinner {
+  id: number;
+  orderId: string;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+  ticketNumber: string;
+  ticketCount: number;
+  packageLabel: string;
+  amount: number;
+  createdAt: string;
+}
+
+export interface AdminDrawWinnerResponse {
+  message: string;
+  winner: AdminRaffleWinner;
+  eligibleEntries: number;
+  eligibleCustomers: number;
+}
+
 export interface AdminDashboardResponse {
   profile: AdminProfile;
   stats: {
@@ -68,6 +88,7 @@ export interface AdminDashboardResponse {
     webpaySales: number;
   };
   orders: AdminOrder[];
+  latestWinner: AdminRaffleWinner | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -179,6 +200,24 @@ export class AdminApi {
       { orderId },
       { headers: this.buildHeaders() },
     );
+  }
+
+  drawWinner() {
+    return this.http
+      .post<AdminDrawWinnerResponse>(`${apiBaseUrl}/admin/draw-winner`, {}, { headers: this.buildHeaders() })
+      .pipe(
+        tap((response) => {
+          const current = this.dashboard();
+          if (!current) {
+            return;
+          }
+
+          this.dashboard.set({
+            ...current,
+            latestWinner: response.winner,
+          });
+        }),
+      );
   }
 
   private buildHeaders() {

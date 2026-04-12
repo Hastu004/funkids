@@ -25,6 +25,11 @@ export class AppController {
     return this.appService.getAdminOrders(authorization);
   }
 
+  @Post('admin/draw-winner')
+  drawAdminWinner(@Headers('authorization') authorization?: string) {
+    return this.appService.drawAdminWinner(authorization);
+  }
+
   @Post('admin/cash-sale')
   createAdminCashSale(@Headers('authorization') authorization: string | undefined, @Body() body: Record<string, unknown>) {
     return this.appService.createAdminCashSale(authorization, body);

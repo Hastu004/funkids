@@ -167,6 +167,32 @@ interface InternalNotificationDeliveryRow {
 
 const internalNotificationRecipients = ['hernan.astudillo.r@gmail.com', 'jbrito@funkids.cl'] as const;
 
+interface RaffleWinnerRow {
+  id: number;
+  order_id: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  ticket_number: string;
+  ticket_count: number;
+  package_label: string;
+  amount: number;
+  created_at: string;
+}
+
+interface RaffleWinnerRecord {
+  id: number;
+  orderId: string;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+  ticketNumber: string;
+  ticketCount: number;
+  packageLabel: string;
+  amount: number;
+  createdAt: string;
+}
+
 interface WebpayTransactionRecord {
   orderId: string;
   buyOrder: string;
@@ -552,6 +578,8 @@ export async function getAdminOrders(request: Request, env: unknown) {
     return dbResult.error;
   }
 
+  await ensureRaffleWinnerSchema(dbResult.db);
+
   const config = getAdminConfig(env);
   if ('error' in config) {
     return config.error;
@@ -563,6 +591,7 @@ export async function getAdminOrders(request: Request, env: unknown) {
   }
 
   const orders = await fetchOrders(dbResult.db);
+  const latestWinner = await findLatestRaffleWinner(dbResult.db);
 
   return Response.json({
     profile: {
@@ -572,6 +601,62 @@ export async function getAdminOrders(request: Request, env: unknown) {
     },
     stats: buildDashboardStats(orders),
     orders,
+    latestWinner,
+  });
+}
+
+export async function drawAdminWinner(request: Request, env: unknown) {
+  const dbResult = getDb(env);
+  if ('error' in dbResult) {
+    return dbResult.error;
+  }
+
+  await ensureRaffleWinnerSchema(dbResult.db);
+
+  const config = getAdminConfig(env);
+  if ('error' in config) {
+    return config.error;
+  }
+
+  const authError = await ensureAdminAuthorization(request, config);
+  if (authError) {
+    return authError;
+  }
+
+  const orders = await fetchOrders(dbResult.db);
+  const eligibleOrders = orders.filter((order) => order.status === 'paid' && order.order.ticketNumbers.length > 0);
+
+  if (eligibleOrders.length === 0) {
+    return jsonError('No hay compras pagadas con tickets disponibles para realizar el sorteo.', 400);
+  }
+
+  const ticketPool = eligibleOrders.flatMap((order) =>
+    order.order.ticketNumbers.map((ticketNumber) => ({
+      order,
+      ticketNumber,
+    })),
+  );
+
+  const drawnEntry = ticketPool[randomInt(ticketPool.length)];
+  const createdAt = new Date().toISOString();
+
+  const winner = await insertRaffleWinner(dbResult.db, {
+    orderId: drawnEntry.order.id,
+    fullName: drawnEntry.order.participant.fullName,
+    email: drawnEntry.order.participant.email,
+    phone: drawnEntry.order.participant.phone,
+    ticketNumber: drawnEntry.ticketNumber,
+    ticketCount: drawnEntry.order.order.ticketNumbers.length,
+    packageLabel: drawnEntry.order.order.packageLabel,
+    amount: drawnEntry.order.order.amount,
+    createdAt,
+  });
+
+  return Response.json({
+    message: `Ganador seleccionado: ${winner.fullName}.`,
+    winner,
+    eligibleEntries: ticketPool.length,
+    eligibleCustomers: eligibleOrders.length,
   });
 }
 
@@ -1001,6 +1086,28 @@ async function ensureInternalNotificationSchema(db: D1Database) {
   ]);
 }
 
+async function ensureRaffleWinnerSchema(db: D1Database) {
+  await db.batch([
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS raffle_winners (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id TEXT NOT NULL,
+        full_name TEXT NOT NULL,
+        email TEXT,
+        phone TEXT,
+        ticket_number TEXT NOT NULL,
+        ticket_count INTEGER NOT NULL,
+        package_label TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+      )
+    `),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_raffle_winners_created_at ON raffle_winners(created_at DESC)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_raffle_winners_order_id ON raffle_winners(order_id)'),
+  ]);
+}
+
 function getAdminConfig(env: unknown): AdminConfig | { error: Response } {
   const source = (env ?? {}) as PagesEnv;
   const email = String(source.ADMIN_EMAIL ?? '').trim().toLowerCase();
@@ -1414,6 +1521,52 @@ async function getInternalNotificationDelivery(db: D1Database, orderId: string) 
   return row ?? null;
 }
 
+async function findLatestRaffleWinner(db: D1Database) {
+  const row = await db
+    .prepare('SELECT * FROM raffle_winners ORDER BY datetime(created_at) DESC, id DESC LIMIT 1')
+    .first<RaffleWinnerRow>();
+
+  return row ? mapRaffleWinnerRow(row) : null;
+}
+
+async function insertRaffleWinner(
+  db: D1Database,
+  input: Omit<RaffleWinnerRecord, 'id'>,
+) {
+  const result = await db
+    .prepare(
+      `
+        INSERT INTO raffle_winners (
+          order_id, full_name, email, phone, ticket_number, ticket_count, package_label, amount, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+    )
+    .bind(
+      input.orderId,
+      input.fullName,
+      input.email,
+      input.phone,
+      input.ticketNumber,
+      input.ticketCount,
+      input.packageLabel,
+      input.amount,
+      input.createdAt,
+    )
+    .run();
+
+  const winnerId = Number(result.meta.last_row_id ?? 0);
+  const inserted = await db
+    .prepare('SELECT * FROM raffle_winners WHERE id = ? LIMIT 1')
+    .bind(winnerId)
+    .first<RaffleWinnerRow>();
+
+  if (!inserted) {
+    throw new Error('No fue posible recuperar el ganador sorteado.');
+  }
+
+  return mapRaffleWinnerRow(inserted);
+}
+
 async function upsertInternalNotificationDelivery(
   db: D1Database,
   input: { orderId: string; recipients: string; sentAt: string | null; lastError: string | null },
@@ -1604,6 +1757,21 @@ function mapWebpayTransactionRow(row: WebpayTransactionRow) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   } satisfies WebpayTransactionRecord;
+}
+
+function mapRaffleWinnerRow(row: RaffleWinnerRow) {
+  return {
+    id: row.id,
+    orderId: row.order_id,
+    fullName: row.full_name,
+    email: row.email,
+    phone: row.phone,
+    ticketNumber: row.ticket_number,
+    ticketCount: row.ticket_count,
+    packageLabel: row.package_label,
+    amount: row.amount,
+    createdAt: row.created_at,
+  } satisfies RaffleWinnerRecord;
 }
 
 async function createWebpayTransaction(
@@ -1842,6 +2010,25 @@ function safeJsonParse(value: string) {
 
 function generateTicketNumbers(count: number) {
   return Array.from({ length: count }, () => `FK-${String(1200 + Math.floor(Math.random() * 8000)).padStart(4, '0')}`);
+}
+
+function randomInt(maxExclusive: number) {
+  if (!Number.isInteger(maxExclusive) || maxExclusive <= 0) {
+    throw new Error('randomInt requiere un maximo positivo.');
+  }
+
+  const maxUint32 = 0xffffffff;
+  const limit = Math.floor((maxUint32 + 1) / maxExclusive) * maxExclusive;
+  const randomBuffer = new Uint32Array(1);
+
+  while (true) {
+    crypto.getRandomValues(randomBuffer);
+    const value = randomBuffer[0];
+
+    if (value < limit) {
+      return value % maxExclusive;
+    }
+  }
 }
 
 function buildOrderReceiptEmail(

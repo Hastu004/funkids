@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
-import { createHmac } from 'node:crypto';
+import { createHmac, randomInt as cryptoRandomInt } from 'node:crypto';
 
 type PaymentMethod = 'transbank';
 type PackageId = 'pkg_2000' | 'pkg_5000' | 'pkg_15000' | 'pkg_30000';
@@ -68,6 +68,19 @@ interface AdminConfig {
   sessionSecret: string;
 }
 
+interface RaffleWinnerRecord {
+  id: number;
+  orderId: string;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+  ticketNumber: string;
+  ticketCount: number;
+  packageLabel: string;
+  amount: number;
+  createdAt: string;
+}
+
 const packages = [
   { id: 'pkg_2000' as const, amount: 2000, participations: 1, label: '$2.000 · 1 ticket' },
   { id: 'pkg_5000' as const, amount: 5000, participations: 3, label: '$5.000 · 3 tickets' },
@@ -99,6 +112,7 @@ const ordersStore: OrderRecord[] = [
     createdAt: '2026-04-11T11:15:00.000Z',
   }),
 ];
+const raffleWinnersStore: RaffleWinnerRecord[] = [];
 
 @Injectable()
 export class AppService {
@@ -370,6 +384,47 @@ export class AppService {
       },
       stats: this.buildDashboardStats(),
       orders: ordersStore,
+      latestWinner: raffleWinnersStore[0] ?? null,
+    };
+  }
+
+  drawAdminWinner(authorization?: string) {
+    const config = this.getAdminConfig();
+    this.ensureAdminAuthorization(authorization, config);
+
+    const eligibleOrders = ordersStore.filter((order) => order.status === 'paid' && order.order.ticketNumbers.length > 0);
+    if (eligibleOrders.length === 0) {
+      throw new BadRequestException('No hay compras pagadas con tickets disponibles para realizar el sorteo.');
+    }
+
+    const ticketPool = eligibleOrders.flatMap((order) =>
+      order.order.ticketNumbers.map((ticketNumber) => ({
+        order,
+        ticketNumber,
+      })),
+    );
+
+    const drawnEntry = ticketPool[cryptoRandomInt(ticketPool.length)];
+    const winner: RaffleWinnerRecord = {
+      id: raffleWinnersStore.length + 1,
+      orderId: drawnEntry.order.id,
+      fullName: drawnEntry.order.participant.fullName,
+      email: drawnEntry.order.participant.email,
+      phone: drawnEntry.order.participant.phone,
+      ticketNumber: drawnEntry.ticketNumber,
+      ticketCount: drawnEntry.order.order.ticketNumbers.length,
+      packageLabel: drawnEntry.order.order.packageLabel,
+      amount: drawnEntry.order.order.amount,
+      createdAt: new Date().toISOString(),
+    };
+
+    raffleWinnersStore.unshift(winner);
+
+    return {
+      message: `Ganador seleccionado: ${winner.fullName}.`,
+      winner,
+      eligibleEntries: ticketPool.length,
+      eligibleCustomers: eligibleOrders.length,
     };
   }
 

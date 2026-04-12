@@ -78,4 +78,17 @@ describe('AppController', () => {
     expect(result.order.channel).toBe('cash');
     expect(result.order.order.participations).toBe(1);
   });
+
+  it('draws a weighted raffle winner for admin', () => {
+    const session = appController.adminLogin({
+      email: 'admin@funkids.cl',
+      password: 'Admin123!',
+    });
+
+    const result = appController.drawAdminWinner(`Bearer ${session.token}`);
+
+    expect(result.winner.fullName).toBeTruthy();
+    expect(result.winner.ticketNumber).toContain('FK-');
+    expect(result.eligibleEntries).toBeGreaterThan(0);
+  });
 });

@@ -67,6 +67,20 @@ CREATE TABLE IF NOT EXISTS internal_notification_deliveries (
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS raffle_winners (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id TEXT NOT NULL,
+  full_name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  ticket_number TEXT NOT NULL,
+  ticket_count INTEGER NOT NULL,
+  package_label TEXT NOT NULL,
+  amount INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_channel ON orders(channel);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
@@ -78,3 +92,5 @@ CREATE INDEX IF NOT EXISTS idx_webpay_transactions_buy_order ON webpay_transacti
 CREATE INDEX IF NOT EXISTS idx_webpay_transactions_session_id ON webpay_transactions(session_id);
 CREATE INDEX IF NOT EXISTS idx_receipt_deliveries_sent_at ON receipt_deliveries(sent_at);
 CREATE INDEX IF NOT EXISTS idx_internal_notification_deliveries_sent_at ON internal_notification_deliveries(sent_at);
+CREATE INDEX IF NOT EXISTS idx_raffle_winners_created_at ON raffle_winners(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_raffle_winners_order_id ON raffle_winners(order_id);

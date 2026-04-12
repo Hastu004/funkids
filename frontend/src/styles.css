@@ -1069,6 +1069,14 @@ p {
   gap: 1rem;
 }
 
+.admin-table-header__actions {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .admin-table-header h2,
 .admin-card--empty h2,
 .admin-card h2 {
@@ -1079,6 +1087,36 @@ p {
 
 .admin-button--create {
   flex: 0 0 auto;
+}
+
+.admin-winner-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.9rem;
+  padding: 1rem 1.05rem;
+  border-radius: 1.45rem;
+  background: linear-gradient(180deg, rgba(233, 248, 255, 0.82), rgba(255, 248, 252, 0.94));
+  border: 1px solid rgba(91, 166, 216, 0.14);
+}
+
+.admin-winner-card h3 {
+  margin: 0.15rem 0 0;
+  font-size: 1.3rem;
+  color: var(--fk-sky-deep);
+}
+
+.admin-winner-card__meta {
+  display: grid;
+  gap: 0.2rem;
+  justify-items: end;
+  text-align: right;
+  color: #6e7592;
+}
+
+.admin-winner-card__meta strong {
+  color: var(--fk-sky-deep);
 }
 
 .admin-filters {
@@ -1194,6 +1232,10 @@ p {
   box-shadow: 0 26px 80px rgba(49, 56, 75, 0.18);
 }
 
+.admin-modal--winner {
+  width: min(680px, 100%);
+}
+
 .admin-modal__header {
   display: flex;
   align-items: start;
@@ -1210,6 +1252,133 @@ p {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.9rem;
+}
+
+.winner-draw-panel,
+.winner-reveal-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.winner-draw-spinner,
+.winner-reveal-card {
+  padding: 1.2rem 1.1rem;
+  border-radius: 1.7rem;
+  background: linear-gradient(180deg, rgba(233, 248, 255, 0.76), rgba(255, 248, 252, 0.96));
+  border: 1px solid rgba(91, 166, 216, 0.14);
+  text-align: center;
+}
+
+.winner-draw-spinner {
+  position: relative;
+  overflow: hidden;
+}
+
+.winner-draw-spinner--active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 20%, rgba(255, 255, 255, 0.45) 50%, transparent 80%);
+  animation: winnerSweep 1.6s linear infinite;
+}
+
+.winner-draw-spinner__halo {
+  position: absolute;
+  inset: auto;
+  width: 220px;
+  height: 220px;
+  top: 50%;
+  left: 50%;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(91, 166, 216, 0.22), rgba(91, 166, 216, 0));
+  filter: blur(8px);
+}
+
+.winner-draw-spinner__dot {
+  position: relative;
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  margin-bottom: 0.85rem;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--fk-coral), var(--fk-sky));
+  box-shadow: 0 0 0 10px rgba(91, 166, 216, 0.08);
+  animation: winnerPulse 1.05s ease-in-out infinite;
+}
+
+.winner-draw-spinner h3,
+.winner-reveal-card h3 {
+  position: relative;
+  margin: 0.15rem 0 0;
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  line-height: 0.95;
+  color: var(--fk-sky-deep);
+}
+
+.winner-draw-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.winner-reveal-card__ticket {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--fk-coral-deep);
+}
+
+.winner-reveal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin: 0;
+  text-align: left;
+}
+
+.winner-reveal-grid div {
+  padding: 0.9rem 0.95rem;
+  border-radius: 1.15rem;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(91, 166, 216, 0.1);
+}
+
+.winner-reveal-grid dt {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8f94aa;
+}
+
+.winner-reveal-grid dd {
+  margin: 0;
+  font-weight: 700;
+  color: var(--fk-sky-deep);
+  line-height: 1.45;
+}
+
+@keyframes winnerPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(91, 166, 216, 0.08);
+  }
+
+  50% {
+    transform: scale(1.16);
+    box-shadow: 0 0 0 18px rgba(91, 166, 216, 0.03);
+  }
+}
+
+@keyframes winnerSweep {
+  0% {
+    transform: translateX(-65%);
+  }
+
+  100% {
+    transform: translateX(65%);
+  }
 }
 
 @media (max-width: 1100px) {
@@ -1243,11 +1412,27 @@ p {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .admin-table-header,
+  .admin-winner-card {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .admin-winner-card__meta {
+    justify-items: start;
+    text-align: left;
+  }
+
   .admin-modal__header {
     flex-direction: column;
   }
 
   .admin-modal__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .winner-draw-stats,
+  .winner-reveal-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
