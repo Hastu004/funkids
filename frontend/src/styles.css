@@ -89,6 +89,7 @@ select {
   filter: blur(var(--ambient-blur, 0));
   transform-origin: center bottom;
   will-change: transform;
+  animation: ambientBalloonPulse var(--ambient-duration, 18s) ease-in-out infinite;
 }
 
 .ambient-balloon::after {
@@ -108,6 +109,7 @@ select {
   background: radial-gradient(circle at center, var(--ambient-color), transparent 72%);
   opacity: 0.22;
   filter: blur(18px);
+  animation: ambientHaloPulse calc(var(--ambient-duration, 18s) * 0.75) ease-in-out infinite;
 }
 
 .ambient-balloon__shine {
@@ -141,6 +143,8 @@ select {
   height: var(--ambient-string-height, 5.5rem);
   background: linear-gradient(180deg, rgba(151, 100, 154, 0.2), rgba(151, 100, 154, 0.03) 72%, transparent);
   transform: translateX(-50%);
+  transform-origin: top center;
+  animation: ambientStringSway calc(var(--ambient-duration, 18s) * 0.9) ease-in-out infinite;
 }
 
 .ambient-balloon__string::after {
@@ -155,6 +159,41 @@ select {
   border-right: 1px solid transparent;
   border-radius: 50%;
   transform: translateX(-52%) rotate(-10deg);
+}
+
+@keyframes ambientBalloonPulse {
+  0%,
+  100% {
+    filter: blur(var(--ambient-blur, 0)) saturate(1);
+  }
+
+  50% {
+    filter: blur(var(--ambient-blur, 0)) saturate(1.08);
+  }
+}
+
+@keyframes ambientHaloPulse {
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 0.32;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes ambientStringSway {
+  0%,
+  100% {
+    transform: translateX(-50%) rotate(-2deg);
+  }
+
+  50% {
+    transform: translateX(-50%) rotate(2deg);
+  }
 }
 
 .hero,
@@ -1325,5 +1364,11 @@ p {
 @media (prefers-reduced-motion: reduce) {
   .ambient-balloon {
     transform: none !important;
+    animation: none !important;
+  }
+
+  .ambient-balloon__halo,
+  .ambient-balloon__string {
+    animation: none !important;
   }
 }
