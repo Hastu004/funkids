@@ -51,6 +51,12 @@ export interface AdminOrderMutationResponse {
   stats: AdminDashboardResponse['stats'];
 }
 
+export interface AdminReceiptResponse {
+  message: string;
+  deliveredAt: string;
+  orderId: string;
+}
+
 export interface AdminDashboardResponse {
   profile: AdminProfile;
   stats: {
@@ -165,6 +171,14 @@ export class AdminApi {
           });
         }),
       );
+  }
+
+  resendOrderEmail(orderId: string) {
+    return this.http.post<AdminReceiptResponse>(
+      `${apiBaseUrl}/admin/orders/resend-email`,
+      { orderId },
+      { headers: this.buildHeaders() },
+    );
   }
 
   private buildHeaders() {

@@ -1,5 +1,5 @@
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, OnDestroy, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AdminApi, type AdminOrder } from './admin-api';
 import { LandingApi } from './landing-api';
@@ -10,6 +10,11 @@ import { LandingApi } from './landing-api';
   imports: [CommonModule, ReactiveFormsModule, CurrencyPipe, DatePipe],
   template: `
     <main class="page-shell admin-page" *ngIf="landing() as landingData">
+      <aside class="toast-message" *ngIf="toast() as toastState" [class.toast-message--error]="toastState.type === 'error'">
+        <strong>{{ toastState.type === 'success' ? 'Correo enviado' : 'No se pudo enviar' }}</strong>
+        <p>{{ toastState.message }}</p>
+      </aside>
+
       <section class="page-section admin-layout" *ngIf="session(); else loginView">
         <div class="admin-header-card">
           <div class="admin-header-card__copy">
@@ -188,6 +193,21 @@ import { LandingApi } from './landing-api';
                     </td>
                     <td>
                       <div class="admin-row-actions">
+                        <button
+                          class="button secondary admin-button"
+                          type="button"
+                          (click)="resendEmail(order)"
+                          [disabled]="resendingEmailOrderId() === order.id || !order.participant.email"
+                          [title]="order.participant.email ? 'Reenviar comprobante' : 'Este registro no tiene email asociado'"
+                        >
+                          {{
+                            resendingEmailOrderId() === order.id
+                              ? 'Enviando...'
+                              : order.participant.email
+                                ? 'Reenviar correo'
+                                : 'Sin email'
+                          }}
+                        </button>
                         <button class="button secondary admin-button" type="button" (click)="startEdit(order)">Editar</button>
                         <button class="button secondary admin-button danger" type="button" (click)="deleteOrder(order)">
                           Eliminar
@@ -315,7 +335,7 @@ import { LandingApi } from './landing-api';
     </main>
   `,
 })
-export class AdminPage {
+export class AdminPage implements OnDestroy {
   private readonly adminApi = inject(AdminApi);
   private readonly landingApi = inject(LandingApi);
   private readonly formBuilder = inject(FormBuilder);
@@ -333,9 +353,13 @@ export class AdminPage {
   protected readonly isLoggingIn = signal(false);
   protected readonly isSavingCashSale = signal(false);
   protected readonly isUpdatingOrder = signal(false);
+  protected readonly resendingEmailOrderId = signal<string | null>(null);
   protected readonly loginError = signal('');
   protected readonly cashSaleMessage = signal('');
   protected readonly editMessage = signal('');
+  protected readonly toast = signal<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   protected readonly filteredOrders = computed(() => {
     const dashboard = this.dashboard();
@@ -412,6 +436,12 @@ export class AdminPage {
 
     if (this.adminApi.session()) {
       this.refreshDashboard();
+    }
+  }
+
+  ngOnDestroy() {
+    if (this.toastTimer) {
+      clearTimeout(this.toastTimer);
     }
   }
 

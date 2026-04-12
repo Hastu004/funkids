@@ -1,3 +1,5 @@
+import { connect } from 'cloudflare:sockets';
+
 export type PaymentMethod = 'transbank';
 export type PackageId = 'pkg_2000' | 'pkg_5000' | 'pkg_15000' | 'pkg_30000';
 export type SaleChannel = 'webpay' | 'cash';
@@ -73,6 +75,17 @@ interface TransbankConfig {
   appUrl: string;
 }
 
+interface SmtpConfig {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  fromEmail: string;
+  fromName: string;
+  secure: boolean;
+  helloHost: string;
+}
+
 interface PagesEnv {
   DB?: D1Database;
   ADMIN_EMAIL?: string;
@@ -82,6 +95,14 @@ interface PagesEnv {
   TRANSBANK_COMMERCE_CODE?: string;
   TRANSBANK_API_KEY?: string;
   PUBLIC_APP_URL?: string;
+  SMTP_HOST?: string;
+  SMTP_PORT?: string;
+  SMTP_USERNAME?: string;
+  SMTP_PASSWORD?: string;
+  SMTP_FROM_EMAIL?: string;
+  SMTP_FROM_NAME?: string;
+  SMTP_SECURE?: string;
+  SMTP_HELLO_HOST?: string;
 }
 
 interface OrderRow {
@@ -121,6 +142,15 @@ interface WebpayTransactionRow {
   last_error: string | null;
   raw_response: string | null;
   created_at: string;
+  updated_at: string;
+}
+
+interface ReceiptDeliveryRow {
+  order_id: string;
+  recipient_email: string | null;
+  sent_at: string | null;
+  last_error: string | null;
+  attempts: number;
   updated_at: string;
 }
 
@@ -548,6 +578,8 @@ export async function createAdminCashSale(request: Request, payload: AdminCashSa
     return authError;
   }
 
+  await ensureReceiptSchema(dbResult.db);
+
   const fullName = payload.fullName?.trim();
   const phone = payload.phone?.trim();
   const email = payload.email?.trim().toLowerCase() || null;
@@ -581,6 +613,7 @@ export async function createAdminCashSale(request: Request, payload: AdminCashSa
   });
 
   await insertOrder(dbResult.db, record);
+  await attemptAutomaticReceiptEmail(dbResult.db, env, record.id);
   const orders = await fetchOrders(dbResult.db);
 
   return Response.json({
@@ -588,6 +621,37 @@ export async function createAdminCashSale(request: Request, payload: AdminCashSa
     order: record,
     stats: buildDashboardStats(orders),
   });
+}
+
+export async function resendAdminOrderReceipt(request: Request, orderId: string, env: unknown) {
+  const dbResult = getDb(env);
+  if ('error' in dbResult) {
+    return dbResult.error;
+  }
+
+  const config = getAdminConfig(env);
+  if ('error' in config) {
+    return config.error;
+  }
+
+  const authError = await ensureAdminAuthorization(request, config);
+  if (authError) {
+    return authError;
+  }
+
+  await ensureReceiptSchema(dbResult.db);
+
+  try {
+    const delivery = await deliverOrderReceipt(dbResult.db, env, orderId, { force: true });
+    return Response.json({
+      message: `Correo enviado correctamente a ${delivery.recipient}.`,
+      deliveredAt: delivery.sentAt,
+      orderId,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No fue posible reenviar el correo.';
+    return jsonError(message, 502);
+  }
 }
 
 export async function updateAdminOrder(
@@ -711,6 +775,7 @@ export async function handleWebpayReturn(request: Request, env: unknown) {
   }
 
   await ensureWebpaySchema(dbResult.db);
+  await ensureReceiptSchema(dbResult.db);
 
   const webpayConfig = getTransbankConfig(env, request);
   if ('error' in webpayConfig) {
@@ -743,6 +808,7 @@ export async function handleWebpayReturn(request: Request, env: unknown) {
   if (tokenWs) {
     try {
       const result = await commitWebpayPayment(dbResult.db, webpayConfig, tokenWs);
+      await attemptAutomaticReceiptEmail(dbResult.db, env, result.orderId);
       return redirectToWebpayResult(webpayConfig.appUrl, result.orderId);
     } catch (error) {
       const current = await findWebpayTransactionByToken(dbResult.db, tokenWs);
@@ -882,6 +948,23 @@ async function ensureWebpaySchema(db: D1Database) {
   ]);
 }
 
+async function ensureReceiptSchema(db: D1Database) {
+  await db.batch([
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS receipt_deliveries (
+        order_id TEXT PRIMARY KEY,
+        recipient_email TEXT,
+        sent_at TEXT,
+        last_error TEXT,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+      )
+    `),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_receipt_deliveries_sent_at ON receipt_deliveries(sent_at)'),
+  ]);
+}
+
 function getAdminConfig(env: unknown): AdminConfig | { error: Response } {
   const source = (env ?? {}) as PagesEnv;
   const email = String(source.ADMIN_EMAIL ?? '').trim().toLowerCase();
@@ -895,6 +978,33 @@ function getAdminConfig(env: unknown): AdminConfig | { error: Response } {
   }
 
   return { email, password, sessionSecret };
+}
+
+function getSmtpConfig(env: unknown): SmtpConfig {
+  const source = (env ?? {}) as PagesEnv;
+  const host = String(source.SMTP_HOST ?? '').trim();
+  const port = Number.parseInt(String(source.SMTP_PORT ?? '465').trim(), 10);
+  const username = String(source.SMTP_USERNAME ?? '').trim();
+  const password = String(source.SMTP_PASSWORD ?? '').trim();
+  const fromEmail = String(source.SMTP_FROM_EMAIL ?? username).trim();
+  const fromName = String(source.SMTP_FROM_NAME ?? 'FunKids').trim() || 'FunKids';
+  const secureRaw = String(source.SMTP_SECURE ?? 'true').trim().toLowerCase();
+  const helloHost = String(source.SMTP_HELLO_HOST ?? fromEmail.split('@')[1] ?? 'funkids.cl').trim() || 'funkids.cl';
+
+  if (!host || !Number.isFinite(port) || port <= 0 || !username || !password || !fromEmail) {
+    throw new Error('Falta configurar SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD o SMTP_FROM_EMAIL.');
+  }
+
+  return {
+    host,
+    port,
+    username,
+    password,
+    fromEmail,
+    fromName,
+    secure: secureRaw !== 'false',
+    helloHost,
+  };
 }
 
 async function ensureAdminAuthorization(request: Request, config: AdminConfig) {
@@ -1136,6 +1246,112 @@ async function replaceOrder(db: D1Database, order: OrderRecord) {
       db.prepare('INSERT INTO order_tickets (order_id, ticket_number) VALUES (?, ?)').bind(order.id, ticketNumber),
     ),
   ]);
+}
+
+async function getReceiptDelivery(db: D1Database, orderId: string) {
+  const row = await db
+    .prepare('SELECT * FROM receipt_deliveries WHERE order_id = ? LIMIT 1')
+    .bind(orderId)
+    .first<ReceiptDeliveryRow>();
+
+  return row ?? null;
+}
+
+async function upsertReceiptDelivery(
+  db: D1Database,
+  input: { orderId: string; recipientEmail: string | null; sentAt: string | null; lastError: string | null },
+) {
+  const current = await getReceiptDelivery(db, input.orderId);
+  const attempts = (current?.attempts ?? 0) + 1;
+  const updatedAt = new Date().toISOString();
+
+  await db
+    .prepare(
+      `
+        INSERT INTO receipt_deliveries (order_id, recipient_email, sent_at, last_error, attempts, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(order_id) DO UPDATE SET
+          recipient_email = excluded.recipient_email,
+          sent_at = excluded.sent_at,
+          last_error = excluded.last_error,
+          attempts = excluded.attempts,
+          updated_at = excluded.updated_at
+      `,
+    )
+    .bind(input.orderId, input.recipientEmail, input.sentAt, input.lastError, attempts, updatedAt)
+    .run();
+}
+
+async function attemptAutomaticReceiptEmail(db: D1Database, env: unknown, orderId: string) {
+  try {
+    await deliverOrderReceipt(db, env, orderId, { force: false });
+  } catch {
+    // El comprobante no debe bloquear la compra ni el retorno de Webpay.
+  }
+}
+
+async function deliverOrderReceipt(
+  db: D1Database,
+  env: unknown,
+  orderId: string,
+  input: { force: boolean },
+) {
+  await ensureReceiptSchema(db);
+
+  const order = await findOrderById(db, orderId);
+  if (!order) {
+    throw new Error('No encontramos la compra indicada para enviar el respaldo.');
+  }
+
+  const recipient = order.participant.email?.trim().toLowerCase() ?? null;
+  if (!recipient) {
+    throw new Error('Este registro no tiene un email asociado.');
+  }
+
+  const currentDelivery = await getReceiptDelivery(db, orderId);
+  if (!input.force && currentDelivery?.sent_at) {
+    return {
+      recipient,
+      sentAt: currentDelivery.sent_at,
+      skipped: true,
+    };
+  }
+
+  const smtpConfig = getSmtpConfig(env);
+  const transaction = order.channel === 'webpay' ? await findWebpayTransactionByOrderId(db, orderId) : null;
+  const receipt = buildOrderReceiptEmail(order, transaction, smtpConfig);
+
+  try {
+    await sendSmtpEmail(smtpConfig, {
+      to: recipient,
+      subject: receipt.subject,
+      text: receipt.text,
+      html: receipt.html,
+    });
+
+    const sentAt = new Date().toISOString();
+    await upsertReceiptDelivery(db, {
+      orderId,
+      recipientEmail: recipient,
+      sentAt,
+      lastError: null,
+    });
+
+    return {
+      recipient,
+      sentAt,
+      skipped: false,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No fue posible enviar el correo.';
+    await upsertReceiptDelivery(db, {
+      orderId,
+      recipientEmail: recipient,
+      sentAt: null,
+      lastError: message,
+    });
+    throw new Error(message);
+  }
 }
 
 function buildDashboardStats(orders: OrderRecord[]) {
@@ -1482,6 +1698,296 @@ function safeJsonParse(value: string) {
 
 function generateTicketNumbers(count: number) {
   return Array.from({ length: count }, () => `FK-${String(1200 + Math.floor(Math.random() * 8000)).padStart(4, '0')}`);
+}
+
+function buildOrderReceiptEmail(
+  order: OrderRecord,
+  transaction: WebpayTransactionRecord | null,
+  smtpConfig: SmtpConfig,
+) {
+  const orderDate = formatReceiptDate(order.createdAt);
+  const total = formatCurrency(order.order.amount);
+  const tickets = order.order.ticketNumbers.join(', ');
+  const paymentStatus = order.status === 'paid' ? 'Pagado' : 'Pendiente';
+  const paymentDetail =
+    order.channel === 'cash'
+      ? 'Venta registrada en efectivo por el equipo administrador.'
+      : transaction?.authorizationCode
+        ? `Autorizacion Webpay: ${transaction.authorizationCode}`
+        : 'Pago procesado con Webpay by Transbank.';
+  const subject = `Respaldo de compra FunKids - ${order.participant.fullName}`;
+  const safeName = escapeHtml(order.participant.fullName);
+  const safeTickets = escapeHtml(tickets);
+  const safePackage = escapeHtml(order.order.packageLabel);
+  const safeEmail = escapeHtml(order.participant.email ?? '');
+  const safePhone = escapeHtml(order.participant.phone ?? 'No informado');
+  const safePaymentDetail = escapeHtml(paymentDetail);
+  const safeStatus = escapeHtml(paymentStatus);
+  const safeDate = escapeHtml(orderDate);
+
+  return {
+    subject,
+    text: [
+      `Hola ${order.participant.fullName},`,
+      '',
+      'Tu compra en FunKids fue registrada correctamente.',
+      '',
+      `Compra: ${order.id}`,
+      `Fecha: ${orderDate}`,
+      `Modalidad: ${order.order.packageLabel}`,
+      `Tickets: ${tickets}`,
+      `Participaciones: ${order.order.participations}`,
+      `Total: ${total}`,
+      `Estado: ${paymentStatus}`,
+      `Detalle de pago: ${paymentDetail}`,
+      '',
+      'Si necesitas ayuda, responde a este correo o escribe a nuestro equipo.',
+      '',
+      'FunKids',
+    ].join('\r\n'),
+    html: `
+      <div style="margin:0;padding:24px;background:#f4fbff;font-family:Arial,sans-serif;color:#465071">
+        <div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:24px;padding:32px;border:1px solid rgba(91,166,216,0.14);box-shadow:0 18px 48px rgba(49,56,75,0.08)">
+          <p style="margin:0 0 16px;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4b99d6">FunKids</p>
+          <h1 style="margin:0 0 12px;font-size:30px;line-height:1.05;color:#4b99d6">Respaldo de compra</h1>
+          <p style="margin:0 0 24px;font-size:16px;line-height:1.6">Hola <strong>${safeName}</strong>, tu compra en FunKids fue registrada correctamente.</p>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:20px">
+            <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Compra</strong><br />${escapeHtml(order.id)}</div>
+            <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Fecha</strong><br />${safeDate}</div>
+            <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Total</strong><br />${escapeHtml(total)}</div>
+            <div style="padding:14px 16px;border-radius:18px;background:#f8fcff"><strong>Estado</strong><br />${safeStatus}</div>
+          </div>
+          <div style="padding:18px;border-radius:20px;background:linear-gradient(180deg,rgba(233,248,255,0.75),rgba(255,248,252,0.92));margin-bottom:18px">
+            <p style="margin:0 0 10px;font-size:18px;font-weight:700;color:#4b99d6">${safePackage}</p>
+            <p style="margin:0 0 8px">Participaciones: <strong>${order.order.participations}</strong></p>
+            <p style="margin:0">Tickets asignados: <strong>${safeTickets}</strong></p>
+          </div>
+          <div style="padding:18px;border-radius:20px;background:#f8fcff;margin-bottom:18px">
+            <p style="margin:0 0 8px"><strong>Email</strong>: ${safeEmail}</p>
+            <p style="margin:0 0 8px"><strong>Telefono</strong>: ${safePhone}</p>
+            <p style="margin:0"><strong>Pago</strong>: ${safePaymentDetail}</p>
+          </div>
+          <p style="margin:0;font-size:14px;line-height:1.6;color:#6e7592">Este correo fue enviado automaticamente desde ${escapeHtml(smtpConfig.fromEmail)} como respaldo de tu compra.</p>
+        </div>
+      </div>
+    `,
+  };
+}
+
+async function sendSmtpEmail(
+  config: SmtpConfig,
+  input: {
+    to: string;
+    subject: string;
+    text: string;
+    html: string;
+  },
+) {
+  const socket = connect(
+    {
+      hostname: config.host,
+      port: config.port,
+    },
+    {
+      secureTransport: config.secure ? 'on' : 'starttls',
+    },
+  );
+
+  const writer = socket.writable.getWriter();
+  const reader = socket.readable.getReader();
+  const client = new SmtpClient(reader, writer);
+
+  try {
+    await client.expect(220, 'No hubo saludo inicial del servidor SMTP.');
+    await client.send(`EHLO ${config.helloHost}`);
+    await client.expect(250, 'El servidor SMTP no acepto EHLO.');
+
+    await client.send('AUTH LOGIN');
+    await client.expect(334, 'El servidor SMTP no acepto AUTH LOGIN.');
+    await client.send(encodeBase64Utf8(config.username));
+    await client.expect(334, 'El servidor SMTP no solicito la contrasena.');
+    await client.send(encodeBase64Utf8(config.password));
+    await client.expect(235, 'Las credenciales SMTP no fueron aceptadas.');
+
+    await client.send(`MAIL FROM:<${config.fromEmail}>`);
+    await client.expect(250, 'El servidor SMTP rechazo el remitente.');
+    await client.send(`RCPT TO:<${input.to}>`);
+    await client.expectAny([250, 251], 'El servidor SMTP rechazo el destinatario.');
+    await client.send('DATA');
+    await client.expect(354, 'El servidor SMTP no acepto el contenido del mensaje.');
+    await client.sendRaw(`${escapeSmtpData(buildMimeMessage(config, input))}\r\n.\r\n`);
+    await client.expect(250, 'El servidor SMTP no confirmo el envio del mensaje.');
+
+    await client.send('QUIT');
+    await client.expectAny([221, 250], 'El servidor SMTP no cerro la sesion correctamente.');
+  } finally {
+    try {
+      await writer.close();
+    } catch {
+      // Ignorado: el servidor puede cerrar antes la conexion luego de QUIT.
+    }
+
+    try {
+      await socket.closed;
+    } catch {
+      // Ignorado: solo necesitamos liberar la conexion.
+    }
+  }
+}
+
+function buildMimeMessage(
+  config: SmtpConfig,
+  input: { to: string; subject: string; text: string; html: string },
+) {
+  const boundary = `fk-${crypto.randomUUID()}`;
+  const fromHeader = `${encodeMimeHeader(config.fromName)} <${config.fromEmail}>`;
+  const messageIdDomain = config.fromEmail.split('@')[1] ?? 'funkids.cl';
+
+  return [
+    `From: ${fromHeader}`,
+    `To: <${input.to}>`,
+    `Subject: ${encodeMimeHeader(input.subject)}`,
+    `Date: ${new Date().toUTCString()}`,
+    `Message-ID: <${crypto.randomUUID()}@${messageIdDomain}>`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/plain; charset="UTF-8"',
+    'Content-Transfer-Encoding: base64',
+    '',
+    wrapBase64(encodeBase64Utf8(input.text)),
+    '',
+    `--${boundary}`,
+    'Content-Type: text/html; charset="UTF-8"',
+    'Content-Transfer-Encoding: base64',
+    '',
+    wrapBase64(encodeBase64Utf8(input.html)),
+    '',
+    `--${boundary}--`,
+  ].join('\r\n');
+}
+
+class SmtpClient {
+  private readonly decoder = new TextDecoder();
+  private buffer = '';
+
+  constructor(
+    private readonly reader: ReadableStreamDefaultReader<Uint8Array>,
+    private readonly writer: WritableStreamDefaultWriter<Uint8Array>,
+  ) {}
+
+  async send(line: string) {
+    await this.sendRaw(`${line}\r\n`);
+  }
+
+  async sendRaw(payload: string) {
+    await this.writer.write(new TextEncoder().encode(payload));
+  }
+
+  async expect(code: number, errorMessage: string) {
+    const response = await this.readResponse();
+    if (response.code !== code) {
+      throw new Error(`${errorMessage} ${response.message}`.trim());
+    }
+
+    return response;
+  }
+
+  async expectAny(codes: number[], errorMessage: string) {
+    const response = await this.readResponse();
+    if (!codes.includes(response.code)) {
+      throw new Error(`${errorMessage} ${response.message}`.trim());
+    }
+
+    return response;
+  }
+
+  private async readResponse() {
+    const lines: string[] = [];
+
+    while (true) {
+      const nextLines = this.consumeLines();
+      if (nextLines.length > 0) {
+        lines.push(...nextLines);
+        const lastLine = lines[lines.length - 1];
+        if (/^\d{3} /.test(lastLine)) {
+          return {
+            code: Number.parseInt(lastLine.slice(0, 3), 10),
+            message: lines.join(' ').trim(),
+          };
+        }
+      }
+
+      const chunk = await this.reader.read();
+      if (chunk.done) {
+        throw new Error('La conexion SMTP se cerro antes de completar la respuesta.');
+      }
+
+      this.buffer += this.decoder.decode(chunk.value, { stream: true });
+    }
+  }
+
+  private consumeLines() {
+    const lines: string[] = [];
+    let separatorIndex = this.buffer.indexOf('\r\n');
+
+    while (separatorIndex !== -1) {
+      lines.push(this.buffer.slice(0, separatorIndex));
+      this.buffer = this.buffer.slice(separatorIndex + 2);
+      separatorIndex = this.buffer.indexOf('\r\n');
+    }
+
+    return lines;
+  }
+}
+
+function encodeMimeHeader(value: string) {
+  return `=?UTF-8?B?${encodeBase64Utf8(value)}?=`;
+}
+
+function encodeBase64Utf8(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+
+  return btoa(binary);
+}
+
+function wrapBase64(value: string) {
+  return value.match(/.{1,76}/g)?.join('\r\n') ?? value;
+}
+
+function escapeSmtpData(value: string) {
+  return value.replace(/\r?\n/g, '\r\n').replace(/(^|\r\n)\./g, '$1..');
+}
+
+function formatReceiptDate(value: string) {
+  return new Intl.DateTimeFormat('es-CL', {
+    dateStyle: 'full',
+    timeStyle: 'short',
+    timeZone: 'America/Santiago',
+  }).format(new Date(value));
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: 'CLP',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }
 
 async function signAdminToken(config: AdminConfig) {
