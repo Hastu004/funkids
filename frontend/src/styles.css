@@ -736,6 +736,117 @@ p {
   color: var(--fk-sky-deep);
 }
 
+.admin-page {
+  padding-bottom: 4rem;
+}
+
+.admin-layout,
+.admin-login {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.admin-header-card,
+.admin-card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 24px 70px rgba(49, 56, 75, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.admin-header-card {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.35rem 1.5rem;
+  border-radius: 2rem;
+}
+
+.admin-header-card__actions {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: end;
+}
+
+.admin-user {
+  margin: 0;
+  font-weight: 800;
+  color: var(--fk-sky-deep);
+}
+
+.admin-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  gap: 1.2rem;
+  align-items: start;
+}
+
+.admin-card {
+  padding: 1.3rem 1.4rem;
+  border-radius: 1.8rem;
+}
+
+.admin-card--login {
+  width: min(480px, 100%);
+  margin: 1.5rem auto 0;
+}
+
+.admin-card--table {
+  overflow: hidden;
+}
+
+.admin-copy {
+  margin-bottom: 1rem;
+  color: #6e7592;
+}
+
+.admin-table-wrap {
+  overflow: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 860px;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.9rem 0.8rem;
+  border-bottom: 1px solid rgba(91, 166, 216, 0.12);
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-table th {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8f94aa;
+}
+
+.admin-table td strong,
+.admin-table td small {
+  display: block;
+}
+
+.admin-table td strong {
+  color: var(--fk-sky-deep);
+}
+
+.admin-table td small {
+  margin-top: 0.2rem;
+  color: #6e7592;
+  line-height: 1.45;
+}
+
 @media (max-width: 1100px) {
   .checkout-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -743,6 +854,20 @@ p {
 
   .page-intro--buy h1 {
     max-width: 14ch;
+  }
+
+  .admin-summary,
+  .admin-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-header-card {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .admin-header-card__actions {
+    justify-items: start;
   }
 }
 

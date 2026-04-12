@@ -1,0 +1,152 @@
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { inject, Injectable, signal } from '@angular/core';
+import { tap } from 'rxjs';
+import type { PackageId, PaymentMethodId } from './landing-api';
+
+const apiBaseUrl =
+  typeof window !== 'undefined' && window.location.hostname === 'localhost'
+    ? 'http://localhost:3000/api'
+    : '/api';
+
+const ADMIN_STORAGE_KEY = 'funkids_admin_session';
+
+export interface AdminProfile {
+  name: string;
+  email: string;
+  role: string;
+}
+
+export interface AdminSession {
+  token: string;
+  profile: AdminProfile;
+}
+
+export interface AdminOrder {
+  id: string;
+  createdAt: string;
+  channel: 'webpay' | 'cash';
+  status: 'paid' | 'pending_payment';
+  sourceLabel: string;
+  notes: string | null;
+  participant: {
+    fullName: string;
+    email: string | null;
+    phone: string | null;
+    wantsAccount: boolean;
+  };
+  order: {
+    packageId: PackageId;
+    packageLabel: string;
+    participations: number;
+    ticketNumbers: string[];
+    amount: number;
+    paymentMethod: PaymentMethodId;
+    paymentLabel: string;
+  };
+}
+
+export interface AdminDashboardResponse {
+  profile: AdminProfile;
+  stats: {
+    totalOrders: number;
+    totalRevenue: number;
+    totalTickets: number;
+    totalParticipations: number;
+    cashSales: number;
+    webpaySales: number;
+  };
+  orders: AdminOrder[];
+}
+
+@Injectable({ providedIn: 'root' })
+export class AdminApi {
+  private readonly http = inject(HttpClient);
+
+  readonly session = signal<AdminSession | null>(readStoredSession());
+  readonly dashboard = signal<AdminDashboardResponse | null>(null);
+
+  login(payload: { email: string; password: string }) {
+    return this.http.post<AdminSession>(`${apiBaseUrl}/admin/login`, payload).pipe(
+      tap((session) => {
+        this.session.set(session);
+        storeSession(session);
+      }),
+    );
+  }
+
+  logout() {
+    this.session.set(null);
+    this.dashboard.set(null);
+    clearStoredSession();
+  }
+
+  loadDashboard() {
+    return this.http
+      .get<AdminDashboardResponse>(`${apiBaseUrl}/admin/orders`, { headers: this.buildHeaders() })
+      .pipe(tap((dashboard) => this.dashboard.set(dashboard)));
+  }
+
+  createCashSale(payload: { fullName: string; email: string; phone: string; packageId: string; notes: string }) {
+    return this.http
+      .post<{ message: string; order: AdminOrder; stats: AdminDashboardResponse['stats'] }>(
+        `${apiBaseUrl}/admin/cash-sale`,
+        payload,
+        { headers: this.buildHeaders() },
+      )
+      .pipe(
+        tap((response) => {
+          const current = this.dashboard();
+          if (!current) {
+            return;
+          }
+
+          this.dashboard.set({
+            ...current,
+            stats: response.stats,
+            orders: [response.order, ...current.orders],
+          });
+        }),
+      );
+  }
+
+  private buildHeaders() {
+    const token = this.session()?.token;
+    return new HttpHeaders({
+      Authorization: `Bearer ${token ?? ''}`,
+    });
+  }
+}
+
+function readStoredSession() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const rawSession = window.localStorage.getItem(ADMIN_STORAGE_KEY);
+  if (!rawSession) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawSession) as AdminSession;
+  } catch {
+    window.localStorage.removeItem(ADMIN_STORAGE_KEY);
+    return null;
+  }
+}
+
+function storeSession(session: AdminSession) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(session));
+}
+
+function clearStoredSession() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.removeItem(ADMIN_STORAGE_KEY);
+}

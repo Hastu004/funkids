@@ -46,4 +46,27 @@ describe('AppController', () => {
       }),
     ).toThrow(BadRequestException);
   });
+
+  it('authenticates the admin demo user', () => {
+    const session = appController.adminLogin({
+      email: 'admin@funkids.cl',
+      password: 'Admin123!',
+    });
+
+    expect(session.profile.role).toBe('admin');
+    expect(session.token).toContain('funkids-admin');
+  });
+
+  it('creates a manual cash sale for admin', () => {
+    const result = appController.createAdminCashSale('Bearer funkids-admin-demo-token', {
+      fullName: 'Venta Caja',
+      phone: '+56 9 1234 5678',
+      packageId: 'pkg_2000',
+      notes: 'Caja local',
+    });
+
+    expect(result.message).toContain('efectivo');
+    expect(result.order.channel).toBe('cash');
+    expect(result.order.order.participations).toBe(1);
+  });
 });

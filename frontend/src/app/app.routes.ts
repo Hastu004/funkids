@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { AdminPage } from './admin-page';
 import { BuyPage } from './buy-page';
 import { FaqPage } from './faq-page';
 import { HomePage } from './home-page';
@@ -20,6 +21,10 @@ export const routes: Routes = [
   {
     path: 'bases-legales',
     component: LegalPage,
+  },
+  {
+    path: 'admin',
+    component: AdminPage,
   },
   {
     path: '**',
