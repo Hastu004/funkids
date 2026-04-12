@@ -84,6 +84,7 @@ interface SmtpConfig {
   fromName: string;
   secure: boolean;
   helloHost: string;
+  timeoutMs: number;
 }
 
 interface PagesEnv {
@@ -103,6 +104,7 @@ interface PagesEnv {
   SMTP_FROM_NAME?: string;
   SMTP_SECURE?: string;
   SMTP_HELLO_HOST?: string;
+  SMTP_TIMEOUT_MS?: string;
 }
 
 interface OrderRow {
@@ -1024,6 +1026,7 @@ function getSmtpConfig(env: unknown): SmtpConfig {
   const fromName = String(source.SMTP_FROM_NAME ?? 'FunKids').trim() || 'FunKids';
   const secureRaw = String(source.SMTP_SECURE ?? 'true').trim().toLowerCase();
   const helloHost = String(source.SMTP_HELLO_HOST ?? fromEmail.split('@')[1] ?? 'funkids.cl').trim() || 'funkids.cl';
+  const timeoutMs = Number.parseInt(String(source.SMTP_TIMEOUT_MS ?? '12000').trim(), 10);
 
   if (!host || !Number.isFinite(port) || port <= 0 || !username || !password || !fromEmail) {
     throw new Error('Falta configurar SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD o SMTP_FROM_EMAIL.');
@@ -1038,6 +1041,7 @@ function getSmtpConfig(env: unknown): SmtpConfig {
     fromName,
     secure: secureRaw !== 'false',
     helloHost,
+    timeoutMs: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 12000,
   };
 }
 
@@ -2005,7 +2009,7 @@ async function sendSmtpEmail(
 
   const writer = socket.writable.getWriter();
   const reader = socket.readable.getReader();
-  const client = new SmtpClient(reader, writer);
+  const client = new SmtpClient(reader, writer, config.timeoutMs);
 
   try {
     await client.expect(220, 'No hubo saludo inicial del servidor SMTP.');
@@ -2034,9 +2038,19 @@ async function sendSmtpEmail(
     await client.expectAny([221, 250], 'El servidor SMTP no cerro la sesion correctamente.');
   } finally {
     try {
+      await reader.cancel();
+    } catch {
+      // Ignorado: el reader puede quedar cerrado por el servidor o por QUIT.
+    }
+
+    try {
       await writer.close();
     } catch {
-      // Ignorado: el servidor puede cerrar antes la conexion luego de QUIT.
+      try {
+        await writer.abort();
+      } catch {
+        // Ignorado: el servidor puede cerrar antes la conexion luego de QUIT.
+      }
     }
 
     try {
@@ -2088,6 +2102,7 @@ class SmtpClient {
   constructor(
     private readonly reader: ReadableStreamDefaultReader<Uint8Array>,
     private readonly writer: WritableStreamDefaultWriter<Uint8Array>,
+    private readonly timeoutMs: number,
   ) {}
 
   async send(line: string) {
@@ -2132,7 +2147,11 @@ class SmtpClient {
         }
       }
 
-      const chunk = await this.reader.read();
+      const chunk = await withTimeout(
+        this.reader.read(),
+        this.timeoutMs,
+        'El servidor SMTP no respondio dentro del tiempo esperado.',
+      );
       if (chunk.done) {
         throw new Error('La conexion SMTP se cerro antes de completar la respuesta.');
       }
@@ -2152,6 +2171,23 @@ class SmtpClient {
     }
 
     return lines;
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
   }
 }
 
