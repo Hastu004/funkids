@@ -1163,7 +1163,7 @@ function getEmailBrandAssets(env: unknown): EmailBrandAssets {
   const appUrl = String(source.PUBLIC_APP_URL ?? 'https://funkids-777.pages.dev').trim().replace(/\/$/, '');
 
   return {
-    logoUrl: `${appUrl}/funkids-favicon.svg?v=2`,
+    logoUrl: `${appUrl}/funkids-email-logo.svg?v=1`,
     brandName: 'FunKids',
     brandTagline: 'Diversion para pequenos grandes exploradores',
   };
@@ -1172,28 +1172,15 @@ function getEmailBrandAssets(env: unknown): EmailBrandAssets {
 function renderEmailBrandLockup(brandAssets: EmailBrandAssets) {
   const safeLogoUrl = escapeHtml(brandAssets.logoUrl);
   const safeBrandName = escapeHtml(brandAssets.brandName);
-  const safeBrandTagline = escapeHtml(brandAssets.brandTagline);
 
   return `
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-      <tr>
-        <td style="width:72px;vertical-align:middle;padding-right:14px">
-          <div style="width:58px;height:58px;border-radius:18px;background:linear-gradient(180deg,#fff7df 0%,#fffdfa 100%);border:1px solid #f2e5cf;position:relative;overflow:hidden;text-align:center;line-height:58px">
-            <img
-              src="${safeLogoUrl}"
-              alt="${safeBrandName}"
-              width="42"
-              height="42"
-              style="display:inline-block;width:42px;height:42px;vertical-align:middle;border:0"
-            />
-          </div>
-        </td>
-        <td style="vertical-align:middle">
-          <div style="font-size:28px;line-height:1;font-weight:800;color:#ff7f3f;font-family:Trebuchet MS,Arial,sans-serif">${safeBrandName}</div>
-          <div style="margin-top:5px;font-size:12px;line-height:1.4;color:#6e7592">${safeBrandTagline}</div>
-        </td>
-      </tr>
-    </table>
+    <img
+      src="${safeLogoUrl}"
+      alt="${safeBrandName}"
+      width="220"
+      height="62"
+      style="display:block;width:220px;max-width:100%;height:auto;border:0"
+    />
   `;
 }
 
