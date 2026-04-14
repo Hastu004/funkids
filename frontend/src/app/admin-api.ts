@@ -3,10 +3,7 @@ import { inject, Injectable, signal } from '@angular/core';
 import { tap } from 'rxjs';
 import type { PackageId, PaymentMethodId } from './landing-api';
 
-const apiBaseUrl =
-  typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'http://localhost:3000/api'
-    : '/api';
+const apiBaseUrl = '/api';
 
 const ADMIN_STORAGE_KEY = 'funkids_admin_session';
 

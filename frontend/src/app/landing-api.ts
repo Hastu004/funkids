@@ -115,10 +115,7 @@ export interface WebpayResultResponse {
   } | null;
 }
 
-const apiBaseUrl =
-  typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'http://localhost:3000/api'
-    : '/api';
+const apiBaseUrl = '/api';
 
 @Injectable({ providedIn: 'root' })
 export class LandingApi {

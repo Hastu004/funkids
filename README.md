@@ -2,32 +2,60 @@
 
 Landing page para `FunKids` con:
 
-- `frontend/`: Angular
-- `backend/`: NestJS
+- `frontend/`: Angular + Cloudflare Pages Functions
 
 ## Estructura
 
 ```text
 funkids/
 ├── frontend/   # Landing page en Angular
-├── backend/    # API simple en NestJS
 └── package.json
 ```
 
 ## Desarrollo local
 
+Este proyecto usa API serverless en `frontend/functions/`.
+
+Prerequisito:
+
+- Node.js `>=20.19.0` (Angular 21 y Wrangler 4)
+
+### 1) Preparar variables de entorno locales
+
+En `frontend/`, crear el archivo `.dev.vars` tomando como base:
+
+- `frontend/.dev.vars.example`
+
+### 2) Aplicar migraciones D1 locales
+
 Desde la raiz del proyecto:
 
 ```bash
-npm run start:frontend
-npm run start:backend
+npm run d1:migrate:local
 ```
 
-Servicios esperados:
+### 3) Levantar la API local (Cloudflare Pages Functions)
+
+Desde la raiz del proyecto:
+
+```bash
+npm run start:functions
+```
+
+### 4) Levantar el frontend Angular
+
+En otra terminal, desde la raiz:
+
+```bash
+npm run start:frontend
+```
+
+Servicios esperados en local:
 
 - Frontend: `http://localhost:4200`
-- Backend: `http://localhost:3000`
-- Endpoint backend: `http://localhost:3000/api/info`
+- Functions local: `http://localhost:8788`
+- API desde frontend: `http://localhost:4200/api/*` (proxy a `:8788`)
+- API directa: `http://localhost:8788/api/*`
 
 ## Cloudflare
 
@@ -35,7 +63,6 @@ Estado actual de despliegue:
 
 - `frontend/` se despliega en `Cloudflare Pages`
 - `frontend/functions/` publica la API en `Cloudflare Pages Functions`
-- `backend/` queda solo para desarrollo local o referencia mientras exista la version Nest
 
 ### Configuracion correcta en Cloudflare Pages
 
@@ -53,24 +80,23 @@ Al conectar el repo `Hastu004/funkids`, usar exactamente:
 Con esa configuracion, Cloudflare publica:
 
 - Frontend Angular desde `frontend/`
-- Endpoints serverless desde `frontend/functions/api/landing.ts`
-- Endpoints serverless desde `frontend/functions/api/purchase.ts`
+- Endpoints serverless desde `frontend/functions/api/`
 
 Rutas expuestas en produccion:
 
 - `/api/landing`
 - `/api/purchase`
+- `/api/admin/*`
+- `/api/webpay/*`
 
 El frontend ya viene configurado para usar:
 
-- `http://localhost:3000/api` en desarrollo local
 - `/api` cuando esta desplegado en Cloudflare
 
 ### Advertencias importantes
 
 - No usar el flujo de `Create a Worker` para desplegar el proyecto actual completo.
 - No apuntar el `Root directory` a la raiz del repo si el objetivo es publicar el frontend.
-- No desplegar `backend/` en Cloudflare Pages.
 - Si se cambia la estructura de carpetas, hay que actualizar esta documentacion antes de tocar la configuracion de Cloudflare.
 
 ### Checklist antes de deploy
@@ -95,7 +121,6 @@ Despues del deploy, revisar esto:
 - La landing carga correctamente.
 - Las rutas `/api/landing` y `/api/purchase` responden.
 - No hay errores de build ni de funciones en Cloudflare.
-- El deploy no intento publicar `backend/`.
 - Si algo cambio en Cloudflare, documentarlo aqui antes de olvidarlo.
 
 ### Que si y que no se publica hoy
@@ -105,17 +130,12 @@ Se publica:
 - La landing Angular ubicada en `frontend/`
 - La API serverless en `frontend/functions/`
 
-No se publica:
-
-- La API Nest de `backend/`
-
 ## Builds
 
 Comandos utiles:
 
 ```bash
 npm run build:frontend
-npm run build:backend
 ```
 
 ## Siguiente paso recomendado
@@ -124,5 +144,3 @@ Para produccion real, falta conectar los endpoints `/api/purchase` a las APIs de
 
 - `Transbank`
 - `Khipu`
-
-Hoy el flujo ya despliega completo en Cloudflare, pero el pago sigue en modo mock.

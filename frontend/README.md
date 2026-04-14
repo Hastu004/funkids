@@ -19,28 +19,65 @@ This Pages project also includes backend endpoints through `Cloudflare Pages Fun
 
 - `functions/api/landing.ts`
 - `functions/api/purchase.ts`
+- `functions/api/admin/*`
+- `functions/api/webpay/*`
 
 When deployed, the app uses:
 
 - `/api/landing`
 - `/api/purchase`
+- `/api/admin/*`
+- `/api/webpay/*`
 
 Important:
 
 - Do not deploy the repository root as a Pages build for the frontend.
 - Do not use the Worker flow for this Angular app as-is.
-- The Nest backend in `../backend` is not included in this Pages deployment.
 - The Pages Functions API is the backend used by the deployed frontend.
 
-## Development server
+## Local development
 
-To start a local development server, run:
+This project runs locally with:
+
+- Angular dev server on `http://localhost:4200`
+- Pages Functions local server on `http://localhost:8788`
+- `/api/*` proxied from Angular to `:8788` via `proxy.conf.json`
+
+Prerequisite:
+
+- Node.js `>=20.19.0`
+
+### 1) Local env vars for Functions
+
+Create `frontend/.dev.vars` from:
+
+- `frontend/.dev.vars.example`
+
+### 2) Local D1 migrations
+
+Run from `frontend/`:
 
 ```bash
-ng serve
+npm run d1:migrate:local
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+### 3) Start Functions locally
+
+Run from `frontend/`:
+
+```bash
+npm run functions:dev
+```
+
+### 4) Start Angular dev server
+
+Run from `frontend/`:
+
+```bash
+npm run start
+```
+
+Once running, open `http://localhost:4200/`. The app reloads automatically when source files change.
 
 ## Code scaffolding
 
@@ -61,7 +98,7 @@ ng generate --help
 To build the project run:
 
 ```bash
-ng build
+npm run build
 ```
 
 This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
@@ -71,7 +108,7 @@ This will compile your project and store the build artifacts in the `dist/` dire
 To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
 
 ```bash
-ng test
+npm run test
 ```
 
 ## Running end-to-end tests

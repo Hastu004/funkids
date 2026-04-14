@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "NG_CLI_ANALYTICS=false ng serve",
+    "start": "NG_CLI_ANALYTICS=false ng serve --proxy-config proxy.conf.json",
+    "functions:dev": "npx --yes wrangler@4 pages dev . --port 8788",
+    "d1:migrate:local": "npx --yes wrangler@4 d1 migrations apply funkids-db --local",
     "build": "NG_CLI_ANALYTICS=false ng build",
     "watch": "NG_CLI_ANALYTICS=false ng build --watch --configuration development",
     "test": "ng test"

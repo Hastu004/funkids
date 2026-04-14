@@ -2,11 +2,11 @@
   "name": "funkids",
   "private": true,
   "version": "1.0.0",
-  "description": "Landing page FunKids con Angular y Nest.",
+  "description": "Landing page FunKids con Angular y Cloudflare Pages Functions.",
   "scripts": {
-    "start:frontend": "NG_CLI_ANALYTICS=false npm --prefix frontend start",
-    "start:backend": "npm --prefix backend run start:dev",
+    "start:frontend": "NG_CLI_ANALYTICS=false npm --prefix frontend run start",
+    "start:functions": "npm --prefix frontend run functions:dev",
     "build:frontend": "NG_CLI_ANALYTICS=false npm --prefix frontend run build",
-    "build:backend": "npm --prefix backend run build"
+    "d1:migrate:local": "npm --prefix frontend run d1:migrate:local"
   }
 }

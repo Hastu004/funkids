@@ -1,0 +1,8 @@
+compatibility_date = "2026-04-14"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "funkids-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+preview_database_id = "DB"
+migrations_dir = "d1/migrations"

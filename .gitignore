@@ -4,7 +4,6 @@ coverage
 
 frontend/node_modules
 frontend/dist
-
-backend/node_modules
-backend/dist
-backend/coverage
+frontend/.wrangler
+frontend/.dev.vars
+frontend/.dev.vars.*
