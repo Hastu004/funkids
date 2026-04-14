@@ -1010,9 +1010,20 @@ function getTransbankConfig(env: unknown, request: Request): TransbankConfig | {
     return { error: jsonError('TRANSBANK_ENVIRONMENT debe ser "integration" o "production".', 500) };
   }
 
-  if (!commerceCode || !apiKey) {
+  const missingTransbankVars: string[] = [];
+  if (!commerceCode) {
+    missingTransbankVars.push('TRANSBANK_COMMERCE_CODE');
+  }
+  if (!apiKey) {
+    missingTransbankVars.push('TRANSBANK_API_KEY');
+  }
+
+  if (missingTransbankVars.length > 0) {
     return {
-      error: jsonError('Faltan credenciales de Transbank en el servidor.', 500),
+      error: jsonError(
+        `Faltan variables de Transbank en el servidor: ${missingTransbankVars.join(', ')}. Revisa Cloudflare Pages en Production y Preview.`,
+        500,
+      ),
     };
   }
 
