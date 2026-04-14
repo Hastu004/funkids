@@ -1004,7 +1004,7 @@ function getTransbankConfig(env: unknown, request: Request): TransbankConfig | {
   const commerceCode = String(source.TRANSBANK_COMMERCE_CODE ?? '').trim();
   const apiKey = String(source.TRANSBANK_API_KEY ?? '').trim();
   const requestOrigin = new URL(request.url).origin;
-  const appUrl = String(source.PUBLIC_APP_URL ?? requestOrigin).trim().replace(/\/$/, '');
+  const appUrl = normalizePublicAppUrl(String(source.PUBLIC_APP_URL ?? requestOrigin));
 
   if (environment !== 'integration' && environment !== 'production') {
     return { error: jsonError('TRANSBANK_ENVIRONMENT debe ser "integration" o "production".', 500) };
@@ -1014,6 +1014,10 @@ function getTransbankConfig(env: unknown, request: Request): TransbankConfig | {
     return {
       error: jsonError('Faltan credenciales de Transbank en el servidor.', 500),
     };
+  }
+
+  if (!appUrl) {
+    return { error: jsonError('PUBLIC_APP_URL debe ser una URL valida con http o https.', 500) };
   }
 
   return {
@@ -1160,7 +1164,7 @@ function getSmtpConfig(env: unknown): SmtpConfig {
 
 function getEmailBrandAssets(env: unknown): EmailBrandAssets {
   const source = (env ?? {}) as PagesEnv;
-  const appUrl = String(source.PUBLIC_APP_URL ?? 'https://funkids-777.pages.dev').trim().replace(/\/$/, '');
+  const appUrl = normalizePublicAppUrl(String(source.PUBLIC_APP_URL ?? 'https://funkids.cl')) ?? 'https://funkids.cl';
 
   return {
     logoUrl: `${appUrl}/funkids-email-logo.svg?v=1`,
@@ -2528,6 +2532,31 @@ function escapeHtml(value: string) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function normalizePublicAppUrl(raw: string) {
+  const value = raw.trim();
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null;
+    }
+
+    parsed.hostname = parsed.hostname.replace(/\.$/, '');
+    parsed.hash = '';
+    parsed.search = '';
+
+    const normalizedPath = parsed.pathname.replace(/\/+$/, '');
+    const path = normalizedPath ? `/${normalizedPath.replace(/^\/+/, '')}` : '';
+
+    return `${parsed.protocol}//${parsed.host}${path}`;
+  } catch {
+    return null;
+  }
 }
 
 async function signAdminToken(config: AdminConfig) {

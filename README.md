@@ -26,6 +26,21 @@ En `frontend/`, crear el archivo `.dev.vars` tomando como base:
 
 - `frontend/.dev.vars.example`
 
+Para Webpay en integración, el ejemplo ya viene preconfigurado con:
+
+- `TRANSBANK_ENVIRONMENT=integration`
+- `TRANSBANK_COMMERCE_CODE=597055555532`
+- `TRANSBANK_API_KEY` de integración oficial
+
+Valores que debes completar tú (no se pueden inferir por internet para tu cuenta):
+
+- `PUBLIC_APP_URL`: tu dominio real (Cloudflare Pages o dominio propio)
+- `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`
+- `SMTP_*`: credenciales reales de tu proveedor de correo
+- `database_id` real de D1 en `frontend/wrangler.toml` (el repo tiene placeholder)
+
+Si tu SMTP ya esta cargado hoy en Cloudflare Pages y funciona para confirmaciones, no necesitas cambiar `SMTP_*`.
+
 ### 2) Aplicar migraciones D1 locales
 
 Desde la raiz del proyecto:
@@ -92,6 +107,24 @@ Rutas expuestas en produccion:
 El frontend ya viene configurado para usar:
 
 - `/api` cuando esta desplegado en Cloudflare
+
+### Variables requeridas en Cloudflare Pages (integracion)
+
+En `Settings -> Variables and Secrets`, define para `Production` y `Preview`:
+
+```text
+TRANSBANK_ENVIRONMENT=integration
+TRANSBANK_COMMERCE_CODE=597055555532
+TRANSBANK_API_KEY=579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C
+PUBLIC_APP_URL=https://funkids.cl
+```
+
+Y en `Settings -> Bindings`, conecta D1 con:
+
+```text
+Binding name: DB
+Database: <tu base D1 real>
+```
 
 ### Advertencias importantes
 

@@ -35,6 +35,24 @@ Important:
 - Do not use the Worker flow for this Angular app as-is.
 - The Pages Functions API is the backend used by the deployed frontend.
 
+### Required variables for Webpay integration
+
+In `Settings -> Variables and Secrets` (for both `Production` and `Preview`):
+
+```text
+TRANSBANK_ENVIRONMENT=integration
+TRANSBANK_COMMERCE_CODE=597055555532
+TRANSBANK_API_KEY=579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C
+PUBLIC_APP_URL=https://funkids.cl
+```
+
+In `Settings -> Bindings`, add:
+
+```text
+Binding name: DB
+Database: <your real D1 database>
+```
+
 ## Local development
 
 This project runs locally with:
@@ -52,6 +70,17 @@ Prerequisite:
 Create `frontend/.dev.vars` from:
 
 - `frontend/.dev.vars.example`
+
+The example file is already configured for Transbank Webpay integration environment (`integration` + official test commerce code and API key).
+
+Values you must set with your own account/infrastructure:
+
+- `PUBLIC_APP_URL`
+- `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`
+- `SMTP_*`
+- `database_id` in `wrangler.toml`
+
+If SMTP is already configured in your Cloudflare Pages project and purchase confirmations are working, you can keep the same `SMTP_*` values.
 
 ### 2) Local D1 migrations
 
