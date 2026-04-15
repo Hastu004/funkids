@@ -45,6 +45,10 @@ select {
     linear-gradient(180deg, #fffdfa 0%, #f5fbff 46%, #eef8ff 100%);
 }
 
+.home-shell {
+  padding-bottom: 0;
+}
+
 .ambient-background {
   position: fixed;
   inset: 0;
@@ -239,17 +243,6 @@ select {
 .promo-hero__lead strong {
   color: var(--fk-sky-deep);
   font-size: 1.08em;
-}
-
-.promo-hero__alert {
-  display: inline-flex;
-  margin: 0.15rem 0 0.8rem;
-  padding: 0.52rem 0.8rem;
-  border-radius: 0.85rem;
-  background: rgba(39, 167, 113, 0.12);
-  border: 1px solid rgba(39, 167, 113, 0.22);
-  color: #1f8d5f;
-  font-weight: 800;
 }
 
 .hero-actions,
@@ -532,14 +525,6 @@ p {
   line-height: 0.95;
 }
 
-.spotlight-lead {
-  margin: 0 0 0.95rem;
-  max-width: 44ch;
-  font-size: 0.98rem;
-  line-height: 1.58;
-  color: #646b88;
-}
-
 .spotlight-subtitle {
   margin: 0 0 0.6rem;
   font-size: 1.08rem;
@@ -560,15 +545,6 @@ p {
   aspect-ratio: 4 / 5;
   border: 1px solid rgba(255, 255, 255, 0.7);
   box-shadow: 0 16px 30px rgba(52, 64, 96, 0.18);
-  isolation: isolate;
-}
-
-.gallery-showcase__item::after {
-  content: '';
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 54%;
-  background: linear-gradient(180deg, rgba(22, 31, 53, 0), rgba(22, 31, 53, 0.72));
 }
 
 .gallery-showcase__item img {
@@ -577,23 +553,6 @@ p {
   object-fit: cover;
   display: block;
   transition: transform 240ms ease;
-}
-
-.gallery-showcase__item span {
-  position: absolute;
-  left: 0.55rem;
-  right: 0.55rem;
-  bottom: 0.5rem;
-  z-index: 1;
-  padding: 0.34rem 0.5rem;
-  border-radius: 0.7rem;
-  background: rgba(255, 255, 255, 0.16);
-  color: #f5f7ff;
-  font-size: 0.77rem;
-  line-height: 1.3;
-  font-weight: 700;
-  text-shadow: 0 1px 6px rgba(13, 20, 39, 0.5);
-  backdrop-filter: blur(2px);
 }
 
 .gallery-showcase__item:hover img {
@@ -695,6 +654,10 @@ p {
   font-size: 1.08rem;
   background: linear-gradient(135deg, #22b06a, #1b8e56);
   box-shadow: 0 20px 35px rgba(28, 133, 82, 0.28);
+}
+
+.mobile-whatsapp-cta {
+  display: none;
 }
 
 .spotlight-list {
@@ -1761,6 +1724,14 @@ p {
     grid-template-columns: 1fr;
   }
 
+  .checkout-layout .purchase-card {
+    order: 1;
+  }
+
+  .checkout-layout .spotlight-card {
+    order: 2;
+  }
+
   .prize-items {
     columns: 1;
   }
@@ -1777,7 +1748,7 @@ p {
   .hero,
   .page-section {
     width: min(100%, calc(100% - 1rem));
-    padding: 1rem 0 2rem;
+    padding: 0.75rem 0 1.25rem;
   }
 
   .promo-hero__card,
@@ -1788,14 +1759,9 @@ p {
   }
 
   .promo-hero__lead {
-    font-size: 0.97rem;
-  }
-
-  .promo-hero__alert {
-    width: 100%;
-    justify-content: center;
-    text-align: center;
-    line-height: 1.35;
+    margin: 0.45rem 0 0.2rem;
+    font-size: 0.93rem;
+    line-height: 1.45;
   }
 
   .hero-copy,
@@ -1804,7 +1770,7 @@ p {
   }
 
   h1 {
-    font-size: clamp(2.8rem, 12vw, 4rem);
+    font-size: clamp(2.25rem, 10.5vw, 3rem);
     line-height: 0.98;
   }
 
@@ -1848,7 +1814,7 @@ p {
   }
 
   .purchase-card {
-    padding: 1.1rem;
+    padding: 0.95rem;
   }
 
   .purchase-card__header h2,
@@ -1856,15 +1822,26 @@ p {
   .process-copy h2,
   .faq-header h2,
   .contact-card h2 {
-    font-size: clamp(1.9rem, 8vw, 2.4rem);
+    font-size: clamp(1.55rem, 7.2vw, 2rem);
+    margin-bottom: 0.28rem;
+  }
+
+  .purchase-card__header {
+    margin-bottom: 0.5rem;
+  }
+
+  .purchase-card__header p {
+    font-size: 0.88rem;
+    line-height: 1.35;
   }
 
   .check-line {
-    font-size: 0.95rem;
+    font-size: 0.87rem;
   }
 
   .checkout-summary {
     gap: 0.75rem;
+    padding: 0.75rem 0.8rem;
   }
 
   .process {
@@ -1872,20 +1849,103 @@ p {
   }
 
   .gallery-showcase {
+    display: flex;
     gap: 0.6rem;
+    overflow-x: auto;
+    padding: 0.1rem 0.15rem 0.35rem;
+    margin: 0 0 0.75rem;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
   }
 
   .gallery-showcase__item {
+    flex: 0 0 72%;
+    max-width: 19rem;
     border-radius: 1rem;
-    aspect-ratio: 3 / 4;
-  }
-
-  .gallery-showcase__item span {
-    font-size: 0.74rem;
+    aspect-ratio: 4 / 3;
+    scroll-snap-align: start;
   }
 
   .participation-steps {
+    gap: 0.45rem;
+    padding-left: 1rem;
+  }
+
+  .participation-steps span {
+    font-size: 0.85rem;
+    line-height: 1.35;
+  }
+
+  .info-card h2 {
+    font-size: clamp(1.35rem, 6.7vw, 1.75rem);
+    margin-bottom: 0.4rem;
+  }
+
+  .info-card {
+    padding: 0.95rem;
+  }
+
+  .spotlight-list {
     gap: 0.55rem;
+    margin: 0.55rem 0 0.85rem;
+  }
+
+  .spotlight-list article {
+    padding: 0.62rem 0.75rem;
+  }
+
+  .purchase-form {
+    gap: 0.62rem;
+  }
+
+  .field input,
+  .field select {
+    min-height: 2.8rem;
+    padding: 0.58rem 0.82rem;
+  }
+
+  .payment-option {
+    padding: 0.75rem 0.8rem;
+    gap: 0.6rem;
+  }
+
+  .check-line.legal {
+    padding: 0.65rem 0.78rem;
+  }
+
+  .helper-text {
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+
+  .final-cta {
+    display: none;
+  }
+
+  .home-shell {
+    padding-bottom: 5.1rem;
+  }
+
+  .mobile-whatsapp-cta {
+    position: fixed;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 0.7rem;
+    z-index: 40;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 3rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #22b06a, #1b8e56);
+    color: #fff;
+    font-weight: 800;
+    text-decoration: none;
+    box-shadow: 0 14px 28px rgba(28, 133, 82, 0.28);
+  }
+
+  .mobile-whatsapp-cta:active {
+    transform: translateY(1px);
   }
 
   .whatsapp-button {
@@ -1939,16 +1999,18 @@ p {
   }
 
   .purchase-form {
-    gap: 0.85rem;
+    gap: 0.7rem;
   }
 
-  .gallery-showcase__item span {
-    font-size: 0.71rem;
-    padding: 0.3rem 0.45rem;
+  .field input,
+  .field select {
+    min-height: 2.65rem;
   }
 
-  .field input {
-    min-height: 3rem;
+  .mobile-whatsapp-cta {
+    left: 0.55rem;
+    right: 0.55rem;
+    bottom: 0.55rem;
   }
 
   .ambient-balloon:nth-child(3),

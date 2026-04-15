@@ -14,15 +14,14 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, CurrencyPipe],
   template: `
-    <main class="page-shell" *ngIf="data() as landing">
+    <main class="page-shell home-shell" *ngIf="data() as landing">
       <section class="page-section promo-hero">
         <article class="promo-hero__card">
           <p class="eyebrow subtle">Sorteo oficial FunKids</p>
-          <h1>Dale a tu hijo el cumpleanos que siempre sono.</h1>
+          <h1>Dale a tu hijo el cumpleanos que siempre soñó.</h1>
           <p class="promo-hero__lead">
-            Con solo <strong>$2.000</strong> puedes participar para ganar una celebracion completa en FunKids.
+            Participa desde <strong>$2.000</strong> y compite por una celebracion completa en FunKids.
           </p>
-          <p class="promo-hero__alert">Por solo $2.000 puedes ganarlo.</p>
           <div class="hero-actions">
             <a class="button primary" href="#checkout">Quiero participar</a>
             <a class="button secondary" href="#galeria">Ver fotos reales</a>
@@ -34,14 +33,10 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
         <aside class="spotlight-card">
           <p class="eyebrow subtle">Premio visual</p>
           <h2>Asi se ve la experiencia que puedes ganar.</h2>
-          <p class="spotlight-lead">
-            Espacios preparados, animacion en vivo y celebraciones que dejan recuerdos para toda la familia.
-          </p>
 
           <div class="gallery-showcase" aria-label="Galeria de eventos FunKids">
             <article class="gallery-showcase__item" *ngFor="let moment of galleryMoments">
               <img [src]="moment.src" [alt]="moment.alt" loading="lazy" decoding="async" />
-              <span>{{ moment.caption }}</span>
             </article>
           </div>
 
@@ -189,7 +184,7 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
         <article class="info-card social-proof-card">
           <p class="eyebrow subtle">Cuenta regresiva</p>
           <h2>Faltan {{ daysUntilDraw }} dias para el sorteo en vivo.</h2>
-          <p>El sorteo se realiza el 30 de junio y compartiremos el resultado en nuestros canales oficiales.</p>
+          <p>Sorteo en vivo el 30 de junio.</p>
         </article>
 
         <article class="info-card trust-card">
@@ -210,7 +205,6 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
         <article class="final-cta__card">
           <p class="eyebrow subtle">Bloque final</p>
           <h2>Sorteo en vivo el 30 de junio.</h2>
-          <p>Participa hoy y asegura tus numeros para la transmision final.</p>
           <a
             class="button whatsapp-button"
             href="https://wa.me/56988207303?text=Hola%20FunKids%2C%20quiero%20participar%20en%20el%20sorteo."
@@ -221,6 +215,15 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
           </a>
         </article>
       </section>
+
+      <a
+        class="mobile-whatsapp-cta"
+        href="https://wa.me/56988207303?text=Hola%20FunKids%2C%20quiero%20participar%20en%20el%20sorteo."
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        WhatsApp
+      </a>
     </main>
   `,
 })
@@ -232,23 +235,19 @@ export class HomePage {
   protected readonly galleryMoments = [
     {
       src: '/gallery/funkids-galeria-04.jpeg',
-      alt: 'Entrada de evento infantil con alfombra roja y decoracion de globos.',
-      caption: 'Bienvenida de evento',
+      alt: 'Foto de evento FunKids 1.',
     },
     {
       src: '/gallery/funkids-galeria-02.jpeg',
-      alt: 'Nina saltando en trampolin rodeada de burbujas en zona de juegos FunKids.',
-      caption: 'Zona de juego activa',
+      alt: 'Foto de evento FunKids 2.',
     },
     {
       src: '/gallery/funkids-galeria-03.jpeg',
-      alt: 'Animador preparando algodon de azucar frente a mostrador de FunKids.',
-      caption: 'Animacion y show',
+      alt: 'Foto de evento FunKids 3.',
     },
     {
       src: '/gallery/funkids-galeria-01.jpeg',
-      alt: 'Decoracion tematica de cumpleanos con arco de globos de colores.',
-      caption: 'Decoracion personalizada',
+      alt: 'Foto de evento FunKids 4.',
     },
   ] as const;
   protected readonly data = computed(() => this.api.landing());
