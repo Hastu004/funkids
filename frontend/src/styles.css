@@ -9,6 +9,9 @@
   --fk-ink: #5d6480;
   --fk-sand: #fff9f3;
   --fk-cloud: #fffdfb;
+  --fk-card-bg: rgba(255, 255, 255, 0.1);
+  --fk-card-bg-soft: rgba(255, 255, 255, 0.12);
+  --fk-card-border: rgba(255, 255, 255, 0.42);
 }
 
 * {
@@ -127,7 +130,7 @@ select {
   inset: -10%;
   border-radius: 50%;
   background: radial-gradient(circle at center, var(--ambient-color), transparent 72%);
-  opacity: 0.22;
+  opacity: 0.3;
   filter: blur(18px);
   animation: ambientHaloPulse calc(var(--ambient-duration, 18s) * 0.75) ease-in-out infinite;
 }
@@ -184,11 +187,11 @@ select {
 @keyframes ambientBalloonPulse {
   0%,
   100% {
-    filter: blur(var(--ambient-blur, 0)) saturate(1);
+    filter: blur(var(--ambient-blur, 0)) saturate(1.12);
   }
 
   50% {
-    filter: blur(var(--ambient-blur, 0)) saturate(1.08);
+    filter: blur(var(--ambient-blur, 0)) saturate(1.28);
   }
 }
 
@@ -263,8 +266,8 @@ select {
   text-align: center;
   padding: 1.45rem 1.55rem;
   border-radius: 2rem;
-  background: linear-gradient(140deg, rgba(255, 255, 255, 0.76), rgba(233, 248, 255, 0.72));
-  border: 1px solid rgba(255, 255, 255, 0.92);
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.14), rgba(233, 248, 255, 0.12));
+  border: 1px solid var(--fk-card-border);
   box-shadow: 0 24px 62px rgba(49, 56, 75, 0.1);
 }
 
@@ -555,8 +558,8 @@ p {
 .contact-card,
 .result-card,
 .spotlight-card {
-  background: rgba(255, 255, 255, 0.76);
-  border: 1px solid rgba(255, 255, 255, 0.88);
+  background: var(--fk-card-bg);
+  border: 1px solid var(--fk-card-border);
   box-shadow: 0 24px 70px rgba(49, 56, 75, 0.1);
   backdrop-filter: blur(12px);
 }
@@ -616,8 +619,8 @@ p {
 .info-card {
   padding: 1.2rem 1.15rem;
   border-radius: 1.5rem;
-  background: rgba(255, 255, 255, 0.74);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: var(--fk-card-bg);
+  border: 1px solid var(--fk-card-border);
   box-shadow: 0 20px 55px rgba(49, 56, 75, 0.08);
 }
 
@@ -656,7 +659,7 @@ p {
 }
 
 .social-proof-card {
-  background: linear-gradient(145deg, rgba(233, 248, 255, 0.72), rgba(253, 245, 250, 0.76));
+  background: linear-gradient(145deg, rgba(233, 248, 255, 0.14), rgba(253, 245, 250, 0.12));
 }
 
 .trust-card a {
@@ -674,8 +677,8 @@ p {
 .final-cta__card {
   padding: 1.35rem 1.4rem;
   border-radius: 1.8rem;
-  background: linear-gradient(140deg, rgba(255, 255, 255, 0.76), rgba(247, 252, 255, 0.74));
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.14), rgba(247, 252, 255, 0.12));
+  border: 1px solid var(--fk-card-border);
   box-shadow: 0 24px 65px rgba(49, 56, 75, 0.1);
   text-align: center;
 }
@@ -701,6 +704,7 @@ p {
   font-size: 1.08rem;
   background: linear-gradient(135deg, #22b06a, #1b8e56);
   box-shadow: 0 20px 35px rgba(28, 133, 82, 0.28);
+  color: #fff;
 }
 
 .mobile-whatsapp-cta {
@@ -716,7 +720,7 @@ p {
 .spotlight-list article {
   padding: 0.8rem 0.95rem;
   border-radius: 1.2rem;
-  background: rgba(91, 166, 216, 0.08);
+  background: rgba(91, 166, 216, 0.14);
 }
 
 .spotlight-list strong {
@@ -732,7 +736,7 @@ p {
 }
 
 .prize-list article {
-  background: linear-gradient(180deg, rgba(255, 250, 246, 0.9), rgba(253, 245, 250, 0.92));
+  background: linear-gradient(180deg, rgba(255, 250, 246, 0.14), rgba(253, 245, 250, 0.14));
 }
 
 .prize-items {
@@ -1051,7 +1055,8 @@ p {
   align-items: start;
   padding: 1rem;
   border-radius: 1.4rem;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--fk-card-bg-soft);
+  border: 1px solid rgba(255, 255, 255, 0.35);
 }
 
 .process-steps strong {
@@ -1100,8 +1105,8 @@ p {
 .legal-card {
   padding: 1.35rem 1.5rem;
   border-radius: 1.5rem;
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: var(--fk-card-bg-soft);
+  border: 1px solid var(--fk-card-border);
   box-shadow: 0 20px 55px rgba(49, 56, 75, 0.08);
 }
 
@@ -1120,8 +1125,8 @@ p {
 .legal-option-card {
   padding: 1rem 1.1rem;
   border-radius: 1.2rem;
-  background: linear-gradient(180deg, rgba(233, 248, 255, 0.75), rgba(255, 248, 252, 0.92));
-  border: 1px solid rgba(91, 166, 216, 0.12);
+  background: linear-gradient(180deg, rgba(233, 248, 255, 0.13), rgba(255, 248, 252, 0.12));
+  border: 1px solid rgba(91, 166, 216, 0.22);
 }
 
 .legal-option-card h3 {
