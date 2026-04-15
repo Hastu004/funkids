@@ -21,10 +21,6 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
           <p class="promo-hero__lead">
             Participa desde <strong>$2.000</strong> y compite por una celebracion completa en FunKids.
           </p>
-          <div class="hero-actions">
-            <a class="button primary" href="#checkout">Quiero participar</a>
-            <a class="button secondary" href="#galeria">Ver fotos reales</a>
-          </div>
         </article>
       </section>
 
@@ -32,7 +28,6 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
         <a href="#checkout">Comprar</a>
         <a href="#galeria">Fotos</a>
         <a href="#como-participar">Como participar</a>
-        <a href="#contacto">Contacto</a>
       </nav>
 
       <section class="page-section checkout-layout" id="galeria">
