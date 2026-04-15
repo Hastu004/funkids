@@ -3,6 +3,7 @@ import { Component } from '@angular/core';
 
 type BalloonConfig = {
   x: number;
+  y: number;
   size: number;
   duration: number;
   delay: number;
@@ -29,6 +30,7 @@ type BalloonConfig = {
         [class.ambient-balloon-rise--mobile-hidden]="item.mobileHidden"
         *ngFor="let item of balloons"
         [style.left.%]="item.x"
+        [style.top.%]="item.y"
         [style.--ambient-rise-duration.s]="item.duration"
         [style.--ambient-rise-delay.s]="item.delay"
       >
@@ -61,11 +63,12 @@ export class AmbientBackground {
   protected readonly balloons: BalloonConfig[] = [
     {
       x: 6,
+      y: 78,
       size: 92,
-      duration: 30,
+      duration: 18,
       delay: -2,
       sway: 24,
-      swayDuration: 7.8,
+      swayDuration: 5.8,
       color: 'rgba(255, 90, 85, 0.36)',
       opacity: 0.86,
       stringHeight: 142,
@@ -74,11 +77,12 @@ export class AmbientBackground {
     },
     {
       x: 14,
+      y: 70,
       size: 86,
-      duration: 27,
+      duration: 17,
       delay: -11,
       sway: 20,
-      swayDuration: 7.2,
+      swayDuration: 5.2,
       color: 'rgba(36, 192, 176, 0.32)',
       opacity: 0.82,
       stringHeight: 136,
@@ -87,11 +91,12 @@ export class AmbientBackground {
     },
     {
       x: 24,
+      y: 83,
       size: 104,
-      duration: 33,
+      duration: 21,
       delay: -18,
       sway: 28,
-      swayDuration: 8.8,
+      swayDuration: 6.6,
       color: 'rgba(44, 136, 234, 0.34)',
       opacity: 0.82,
       stringHeight: 160,
@@ -100,11 +105,12 @@ export class AmbientBackground {
     },
     {
       x: 38,
+      y: 74,
       size: 80,
-      duration: 29,
+      duration: 17,
       delay: -9,
       sway: 18,
-      swayDuration: 7.1,
+      swayDuration: 5.1,
       color: 'rgba(255, 200, 39, 0.34)',
       opacity: 0.8,
       stringHeight: 130,
@@ -113,11 +119,12 @@ export class AmbientBackground {
     },
     {
       x: 50,
+      y: 79,
       size: 98,
-      duration: 31,
+      duration: 19,
       delay: -22,
       sway: 22,
-      swayDuration: 8.1,
+      swayDuration: 5.9,
       color: 'rgba(249, 64, 154, 0.33)',
       opacity: 0.8,
       stringHeight: 150,
@@ -126,11 +133,12 @@ export class AmbientBackground {
     },
     {
       x: 62,
+      y: 72,
       size: 88,
-      duration: 28,
+      duration: 16,
       delay: -4,
       sway: 20,
-      swayDuration: 7.5,
+      swayDuration: 5.4,
       color: 'rgba(36, 192, 176, 0.34)',
       opacity: 0.83,
       stringHeight: 140,
@@ -139,11 +147,12 @@ export class AmbientBackground {
     },
     {
       x: 74,
+      y: 84,
       size: 108,
-      duration: 34,
+      duration: 22,
       delay: -15,
       sway: 24,
-      swayDuration: 9.2,
+      swayDuration: 6.8,
       color: 'rgba(255, 200, 39, 0.3)',
       opacity: 0.8,
       stringHeight: 166,
@@ -152,11 +161,12 @@ export class AmbientBackground {
     },
     {
       x: 84,
+      y: 68,
       size: 94,
-      duration: 30,
+      duration: 18,
       delay: -25,
       sway: 26,
-      swayDuration: 8.5,
+      swayDuration: 6.1,
       color: 'rgba(44, 136, 234, 0.34)',
       opacity: 0.82,
       stringHeight: 150,
@@ -165,11 +175,12 @@ export class AmbientBackground {
     },
     {
       x: 93,
+      y: 77,
       size: 78,
-      duration: 26,
+      duration: 16,
       delay: -7,
       sway: 16,
-      swayDuration: 6.8,
+      swayDuration: 5,
       color: 'rgba(255, 90, 85, 0.3)',
       opacity: 0.76,
       stringHeight: 124,
