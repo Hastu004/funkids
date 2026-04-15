@@ -17,7 +17,6 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
     <main class="page-shell home-shell" *ngIf="data() as landing">
       <section class="page-section promo-hero">
         <article class="promo-hero__card">
-          <p class="eyebrow subtle">Sorteo oficial FunKids</p>
           <h1>Dale a tu hijo el cumpleanos que siempre soñó.</h1>
           <p class="promo-hero__lead">
             Participa desde <strong>$2.000</strong> y compite por una celebracion completa en FunKids.
@@ -31,7 +30,6 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
 
       <section class="page-section checkout-layout" id="galeria">
         <aside class="spotlight-card">
-          <p class="eyebrow subtle">Premio visual</p>
           <h2>Asi se ve la experiencia que puedes ganar.</h2>
 
           <div class="gallery-showcase" aria-label="Galeria de eventos FunKids">
@@ -54,7 +52,6 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
 
         <aside class="purchase-card" id="checkout">
           <div class="purchase-card__header">
-            <p class="eyebrow subtle">Compra de tickets</p>
             <h2>{{ landing.raffle.title }}</h2>
             <p>Elige participaciones, paga con Webpay y recibe tus numeros al confirmar el pago.</p>
           </div>
@@ -151,7 +148,6 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
           </form>
 
           <section class="result-card" *ngIf="purchaseResult() as result">
-            <p class="eyebrow subtle">Compra iniciada</p>
             <h3>{{ result.order.paymentLabel }}</h3>
             <p>{{ result.message }}</p>
             <p><strong>{{ result.participant.email }}</strong> recibira la confirmacion de pago.</p>
@@ -163,7 +159,6 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
 
       <section class="page-section participation-flow">
         <article class="info-card">
-          <p class="eyebrow subtle">Como participar</p>
           <h2>Ultra simple</h2>
           <ol class="participation-steps">
             <li>
@@ -182,13 +177,11 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
         </article>
 
         <article class="info-card social-proof-card">
-          <p class="eyebrow subtle">Cuenta regresiva</p>
           <h2>Faltan {{ daysUntilDraw }} dias para el sorteo en vivo.</h2>
           <p>Sorteo en vivo el 30 de junio.</p>
         </article>
 
         <article class="info-card trust-card">
-          <p class="eyebrow subtle">Confianza</p>
           <h2>Fun Kids Diversiones SpA</h2>
           <p><strong>Direccion:</strong> Avenida Balmaceda 2902, local 1010.</p>
           <p>
@@ -203,7 +196,6 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
 
       <section class="page-section final-cta">
         <article class="final-cta__card">
-          <p class="eyebrow subtle">Bloque final</p>
           <h2>Sorteo en vivo el 30 de junio.</h2>
           <a
             class="button whatsapp-button"
