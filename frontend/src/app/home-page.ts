@@ -28,6 +28,13 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
         </article>
       </section>
 
+      <nav class="mobile-home-nav" aria-label="Navegacion rapida del inicio">
+        <a href="#checkout">Comprar</a>
+        <a href="#galeria">Fotos</a>
+        <a href="#como-participar">Como participar</a>
+        <a href="#contacto">Contacto</a>
+      </nav>
+
       <section class="page-section checkout-layout" id="galeria">
         <aside class="spotlight-card">
           <h2>Asi se ve la experiencia que puedes ganar.</h2>
@@ -157,7 +164,7 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
         </aside>
       </section>
 
-      <section class="page-section participation-flow">
+      <section class="page-section participation-flow" id="como-participar">
         <article class="info-card">
           <h2>Ultra simple</h2>
           <ol class="participation-steps">
@@ -194,7 +201,7 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
         </article>
       </section>
 
-      <section class="page-section final-cta">
+      <section class="page-section final-cta" id="contacto">
         <article class="final-cta__card">
           <h2>Sorteo en vivo el 30 de junio.</h2>
           <a
