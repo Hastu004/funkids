@@ -42,6 +42,16 @@
   color: var(--fk-sky-deep);
 }
 
+.brand {
+  min-height: auto;
+}
+
+.brand-image {
+  display: block;
+  width: clamp(180px, 24vw, 310px);
+  height: auto;
+}
+
 @media (max-width: 720px) {
   .site-header__inner {
     min-height: 4.2rem;
@@ -79,34 +89,10 @@
   }
 
   .brand {
-    gap: 0.45rem;
-    min-height: auto;
     flex: 0 0 auto;
   }
 
-  .brand-wordmark small {
-    display: none;
-  }
-
-  .fun-word,
-  .kids-word {
-    font-size: 1.28rem;
-    line-height: 0.9;
-  }
-
-  .brand-heart {
-    width: 2.3rem;
-    height: 1.9rem;
-    margin-right: 0.1rem;
-  }
-
-  .brand-dots i:first-child {
-    width: 0.64rem;
-    height: 0.64rem;
-  }
-
-  .brand-dots i:last-child {
-    width: 0.5rem;
-    height: 0.5rem;
+  .brand-image {
+    width: clamp(140px, 38vw, 185px);
   }
 }
