@@ -17,7 +17,7 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
     <main class="page-shell home-shell" *ngIf="data() as landing">
       <section class="page-section promo-hero">
         <article class="promo-hero__card">
-          <h1>Dale a tu hijo el cumpleanos que siempre soñó.</h1>
+          <h1>Dale a tu hijo el cumpleaños que siempre soñó.</h1>
           <p class="promo-hero__lead">
             Participa desde <strong>$2.000</strong> y compite por una celebracion completa en FunKids.
           </p>
