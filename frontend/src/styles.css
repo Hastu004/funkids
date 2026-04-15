@@ -9,8 +9,8 @@
   --fk-ink: #5d6480;
   --fk-sand: #fff9f3;
   --fk-cloud: #fffdfb;
-  --fk-card-bg: rgba(255, 255, 255, 0.1);
-  --fk-card-bg-soft: rgba(255, 255, 255, 0.12);
+  --fk-card-bg: rgba(255, 255, 255, 0.05);
+  --fk-card-bg-soft: rgba(255, 255, 255, 0.05);
   --fk-card-border: rgba(255, 255, 255, 0.42);
 }
 
@@ -266,7 +266,7 @@ select {
   text-align: center;
   padding: 1.45rem 1.55rem;
   border-radius: 2rem;
-  background: linear-gradient(140deg, rgba(255, 255, 255, 0.14), rgba(233, 248, 255, 0.12));
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.06), rgba(233, 248, 255, 0.05));
   border: 1px solid var(--fk-card-border);
   box-shadow: 0 24px 62px rgba(49, 56, 75, 0.1);
 }
@@ -659,7 +659,7 @@ p {
 }
 
 .social-proof-card {
-  background: linear-gradient(145deg, rgba(233, 248, 255, 0.14), rgba(253, 245, 250, 0.12));
+  background: linear-gradient(145deg, rgba(233, 248, 255, 0.06), rgba(253, 245, 250, 0.05));
 }
 
 .trust-card a {
@@ -677,7 +677,7 @@ p {
 .final-cta__card {
   padding: 1.35rem 1.4rem;
   border-radius: 1.8rem;
-  background: linear-gradient(140deg, rgba(255, 255, 255, 0.14), rgba(247, 252, 255, 0.12));
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.06), rgba(247, 252, 255, 0.05));
   border: 1px solid var(--fk-card-border);
   box-shadow: 0 24px 65px rgba(49, 56, 75, 0.1);
   text-align: center;
@@ -720,7 +720,7 @@ p {
 .spotlight-list article {
   padding: 0.8rem 0.95rem;
   border-radius: 1.2rem;
-  background: rgba(91, 166, 216, 0.14);
+  background: rgba(91, 166, 216, 0.06);
 }
 
 .spotlight-list strong {
@@ -736,7 +736,7 @@ p {
 }
 
 .prize-list article {
-  background: linear-gradient(180deg, rgba(255, 250, 246, 0.14), rgba(253, 245, 250, 0.14));
+  background: linear-gradient(180deg, rgba(255, 250, 246, 0.06), rgba(253, 245, 250, 0.05));
 }
 
 .prize-items {
@@ -1125,7 +1125,7 @@ p {
 .legal-option-card {
   padding: 1rem 1.1rem;
   border-radius: 1.2rem;
-  background: linear-gradient(180deg, rgba(233, 248, 255, 0.13), rgba(255, 248, 252, 0.12));
+  background: linear-gradient(180deg, rgba(233, 248, 255, 0.06), rgba(255, 248, 252, 0.05));
   border: 1px solid rgba(91, 166, 216, 0.22);
 }
 
