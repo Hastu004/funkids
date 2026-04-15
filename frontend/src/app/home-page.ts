@@ -15,26 +15,53 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
   imports: [CommonModule, ReactiveFormsModule, CurrencyPipe],
   template: `
     <main class="page-shell" *ngIf="data() as landing">
-      <section class="page-section checkout-layout">
+      <section class="page-section promo-hero">
+        <article class="promo-hero__card">
+          <p class="eyebrow subtle">Sorteo oficial FunKids</p>
+          <h1>Dale a tu hijo el cumpleanos que siempre sono.</h1>
+          <p class="promo-hero__lead">
+            Con solo <strong>$2.000</strong> puedes participar para ganar una celebracion completa en FunKids.
+          </p>
+          <p class="promo-hero__alert">Por solo $2.000 puedes ganarlo.</p>
+          <div class="hero-actions">
+            <a class="button primary" href="#checkout">Quiero participar</a>
+            <a class="button secondary" href="#galeria">Ver fotos reales</a>
+          </div>
+        </article>
+      </section>
+
+      <section class="page-section checkout-layout" id="galeria">
         <aside class="spotlight-card">
-            <p class="eyebrow subtle">Premio</p>
-            <h2>El ganador podra elegir una de estas opciones.</h2>
-            <div class="spotlight-list prize-list">
-              <article *ngFor="let prize of landing.prizes">
-                <strong>{{ prize.title }}</strong>
-                <ul class="prize-items">
-                  <li *ngFor="let item of prize.items">{{ item }}</li>
-                </ul>
-              </article>
-            </div>
-            <a class="button primary" href="#checkout">Ir al checkout</a>
+          <p class="eyebrow subtle">Premio visual</p>
+          <h2>Asi se ve la experiencia que puedes ganar.</h2>
+          <p class="spotlight-lead">
+            Espacios preparados, animacion en vivo y celebraciones que dejan recuerdos para toda la familia.
+          </p>
+
+          <div class="gallery-showcase" aria-label="Galeria de eventos FunKids">
+            <article class="gallery-showcase__item" *ngFor="let moment of galleryMoments">
+              <img [src]="moment.src" [alt]="moment.alt" loading="lazy" decoding="async" />
+              <span>{{ moment.caption }}</span>
+            </article>
+          </div>
+
+          <h3 class="spotlight-subtitle">El ganador podra elegir una de estas opciones</h3>
+          <div class="spotlight-list prize-list">
+            <article *ngFor="let prize of landing.prizes">
+              <strong>{{ prize.title }}</strong>
+              <ul class="prize-items">
+                <li *ngFor="let item of prize.items">{{ item }}</li>
+              </ul>
+            </article>
+          </div>
+          <a class="button primary" href="#checkout">Ir al checkout</a>
         </aside>
 
         <aside class="purchase-card" id="checkout">
           <div class="purchase-card__header">
             <p class="eyebrow subtle">Compra de tickets</p>
             <h2>{{ landing.raffle.title }}</h2>
-            <p>Completa tus datos, elige una opcion de tickets y continua al pago con Webpay.</p>
+            <p>Elige participaciones, paga con Webpay y recibe tus numeros al confirmar el pago.</p>
           </div>
 
           <form [formGroup]="purchaseForm" (ngSubmit)="submitPurchase()" class="purchase-form">
@@ -138,13 +165,92 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
           </section>
         </aside>
       </section>
+
+      <section class="page-section participation-flow">
+        <article class="info-card">
+          <p class="eyebrow subtle">Como participar</p>
+          <h2>Ultra simple</h2>
+          <ol class="participation-steps">
+            <li>
+              <strong>Elige participaciones</strong>
+              <span>Selecciona el pack de tickets que mejor te acomode.</span>
+            </li>
+            <li>
+              <strong>Paga</strong>
+              <span>Completa el pago seguro con Webpay by Transbank.</span>
+            </li>
+            <li>
+              <strong>Recibe tus numeros</strong>
+              <span>Quedan registrados para el sorteo y te enviamos confirmacion.</span>
+            </li>
+          </ol>
+        </article>
+
+        <article class="info-card social-proof-card">
+          <p class="eyebrow subtle">Cuenta regresiva</p>
+          <h2>Faltan {{ daysUntilDraw }} dias para el sorteo en vivo.</h2>
+          <p>El sorteo se realiza el 30 de junio y compartiremos el resultado en nuestros canales oficiales.</p>
+        </article>
+
+        <article class="info-card trust-card">
+          <p class="eyebrow subtle">Confianza</p>
+          <h2>Fun Kids Diversiones SpA</h2>
+          <p><strong>Direccion:</strong> Avenida Balmaceda 2902, local 1010.</p>
+          <p>
+            <strong>Instagram:</strong>
+            <a href="https://www.instagram.com/funkids_calama/" target="_blank" rel="noopener noreferrer">
+              @funkids_calama
+            </a>
+          </p>
+          <p><strong>Contacto:</strong> <a href="tel:+56988207303">+56 9 8820 7303</a></p>
+        </article>
+      </section>
+
+      <section class="page-section final-cta">
+        <article class="final-cta__card">
+          <p class="eyebrow subtle">Bloque final</p>
+          <h2>Sorteo en vivo el 30 de junio.</h2>
+          <p>Participa hoy y asegura tus numeros para la transmision final.</p>
+          <a
+            class="button whatsapp-button"
+            href="https://wa.me/56988207303?text=Hola%20FunKids%2C%20quiero%20participar%20en%20el%20sorteo."
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Hablar por WhatsApp
+          </a>
+        </article>
+      </section>
     </main>
   `,
 })
 export class HomePage {
   private readonly api = inject(LandingApi);
   private readonly formBuilder = inject(FormBuilder);
+  protected readonly daysUntilDraw = this.calculateDaysUntilDraw();
 
+  protected readonly galleryMoments = [
+    {
+      src: '/gallery/funkids-galeria-04.jpeg',
+      alt: 'Entrada de evento infantil con alfombra roja y decoracion de globos.',
+      caption: 'Bienvenida de evento',
+    },
+    {
+      src: '/gallery/funkids-galeria-02.jpeg',
+      alt: 'Nina saltando en trampolin rodeada de burbujas en zona de juegos FunKids.',
+      caption: 'Zona de juego activa',
+    },
+    {
+      src: '/gallery/funkids-galeria-03.jpeg',
+      alt: 'Animador preparando algodon de azucar frente a mostrador de FunKids.',
+      caption: 'Animacion y show',
+    },
+    {
+      src: '/gallery/funkids-galeria-01.jpeg',
+      alt: 'Decoracion tematica de cumpleanos con arco de globos de colores.',
+      caption: 'Decoracion personalizada',
+    },
+  ] as const;
   protected readonly data = computed(() => this.api.landing());
   protected readonly isSubmitting = signal(false);
   protected readonly submitError = signal('');
@@ -265,5 +371,12 @@ export class HomePage {
     form.appendChild(tokenInput);
     document.body.appendChild(form);
     form.submit();
+  }
+
+  private calculateDaysUntilDraw() {
+    const drawDate = new Date('2026-06-30T23:59:59-04:00');
+    const now = Date.now();
+    const remainingMs = drawDate.getTime() - now;
+    return Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
   }
 }
