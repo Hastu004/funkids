@@ -225,6 +225,9 @@ select {
 }
 
 .promo-hero__card {
+  display: grid;
+  justify-items: center;
+  text-align: center;
   padding: 1.45rem 1.55rem;
   border-radius: 2rem;
   background: linear-gradient(140deg, rgba(255, 255, 255, 0.92), rgba(233, 248, 255, 0.9));
@@ -233,14 +236,17 @@ select {
 }
 
 .promo-hero__card h1 {
-  max-width: 14ch;
+  max-width: 16ch;
+  font-size: clamp(2.4rem, 5.3vw, 3.7rem);
+  letter-spacing: -0.045em;
+  line-height: 0.95;
 }
 
 .promo-hero__lead {
-  margin: 0.75rem 0 0.35rem;
-  max-width: 48ch;
-  font-size: 1.03rem;
-  line-height: 1.6;
+  margin: 0.62rem auto 0.1rem;
+  max-width: 42ch;
+  font-size: 0.98rem;
+  line-height: 1.5;
   color: #606885;
 }
 
@@ -1803,10 +1809,23 @@ p {
     padding: 1.05rem;
   }
 
+  .promo-hero {
+    padding-top: 0.8rem;
+    padding-bottom: 0.35rem;
+  }
+
+  .promo-hero__card h1 {
+    max-width: 14ch;
+    font-size: clamp(1.95rem, 8.8vw, 2.45rem);
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
   .promo-hero__lead {
-    margin: 0.45rem 0 0.2rem;
-    font-size: 0.93rem;
-    line-height: 1.45;
+    margin: 0.42rem auto 0.05rem;
+    max-width: 30ch;
+    font-size: 0.9rem;
+    line-height: 1.38;
   }
 
   .hero-copy,
