@@ -84,20 +84,33 @@ select {
   background: rgba(91, 166, 216, 0.1);
 }
 
-.ambient-balloon {
+.ambient-balloon-rise {
   position: absolute;
+  top: 104vh;
+  animation: ambientRise var(--ambient-rise-duration, 30s) linear infinite;
+  animation-delay: var(--ambient-rise-delay, 0s);
+  will-change: transform;
+}
+
+.ambient-balloon-sway {
+  animation: ambientSway var(--ambient-sway-duration, 8s) ease-in-out infinite;
+  transform-origin: center bottom;
+  will-change: transform;
+}
+
+.ambient-balloon {
+  position: relative;
   border-radius: 52% 52% 48% 48%;
   background:
     radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.55), transparent 0 18%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.34), var(--ambient-color));
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.55),
-    0 24px 65px rgba(110, 117, 146, 0.08);
+    0 20px 36px rgba(110, 117, 146, 0.1);
   opacity: var(--ambient-opacity);
   filter: blur(var(--ambient-blur, 0));
   transform-origin: center bottom;
-  will-change: transform;
-  animation: ambientBalloonPulse var(--ambient-duration, 18s) ease-in-out infinite;
+  animation: ambientBalloonPulse var(--ambient-duration, 11s) ease-in-out infinite;
 }
 
 .ambient-balloon::after {
@@ -177,6 +190,27 @@ select {
 
   50% {
     filter: blur(var(--ambient-blur, 0)) saturate(1.08);
+  }
+}
+
+@keyframes ambientRise {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  100% {
+    transform: translate3d(0, -212vh, 0);
+  }
+}
+
+@keyframes ambientSway {
+  0%,
+  100% {
+    transform: translateX(calc(var(--ambient-sway-distance, 18px) * -1)) rotate(-4deg);
+  }
+
+  50% {
+    transform: translateX(var(--ambient-sway-distance, 18px)) rotate(3deg);
   }
 }
 
@@ -2028,8 +2062,7 @@ p {
     font-size: 1.2rem;
   }
 
-  .ambient-balloon:nth-child(4),
-  .ambient-balloon:nth-child(7) {
+  .ambient-balloon-rise--mobile-hidden {
     display: none;
   }
 }
@@ -2088,13 +2121,14 @@ p {
     bottom: 0.55rem;
   }
 
-  .ambient-balloon:nth-child(3),
-  .ambient-balloon:nth-child(6) {
-    display: none;
+  .ambient-balloon-rise {
+    opacity: 0.7;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .ambient-balloon-rise,
+  .ambient-balloon-sway,
   .ambient-balloon {
     transform: none !important;
     animation: none !important;
