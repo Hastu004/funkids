@@ -36,6 +36,7 @@ Valores que debes completar tú (no se pueden inferir por internet para tu cuent
 
 - `PUBLIC_APP_URL`: tu dominio real (Cloudflare Pages o dominio propio)
 - `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`
+- `SELLER_EMAIL`, `SELLER_PASSWORD` (opcional para rol vendedor)
 - `SMTP_*`: credenciales reales de tu proveedor de correo
 - `database_id` real de D1 en `frontend/wrangler.toml` (el repo tiene placeholder)
 

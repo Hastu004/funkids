@@ -6,11 +6,13 @@ import type { PackageId, PaymentMethodId } from './landing-api';
 const apiBaseUrl = '/api';
 
 const ADMIN_STORAGE_KEY = 'funkids_admin_session';
+export type AdminRole = 'admin' | 'seller';
+export type ManualSaleMethod = 'cash' | 'transfer' | 'debit' | 'credit';
 
 export interface AdminProfile {
   name: string;
   email: string;
-  role: string;
+  role: AdminRole;
 }
 
 export interface AdminSession {
@@ -45,7 +47,7 @@ export interface AdminOrder {
 export interface AdminOrderMutationResponse {
   message: string;
   order: AdminOrder;
-  stats: AdminDashboardResponse['stats'];
+  stats?: AdminDashboardResponse['stats'];
 }
 
 export interface AdminReceiptResponse {
@@ -99,6 +101,7 @@ export class AdminApi {
     return this.http.post<AdminSession>(`${apiBaseUrl}/admin/login`, payload).pipe(
       tap((session) => {
         this.session.set(session);
+        this.dashboard.set(null);
         storeSession(session);
       }),
     );
@@ -116,7 +119,15 @@ export class AdminApi {
       .pipe(tap((dashboard) => this.dashboard.set(dashboard)));
   }
 
-  createCashSale(payload: { fullName: string; email: string; phone: string; packageId: string; notes: string }) {
+  createCashSale(payload: {
+    fullName: string;
+    email: string;
+    phone: string;
+    packageId: string;
+    saleMethod: ManualSaleMethod;
+    receiptReference: string;
+    notes: string;
+  }) {
     return this.http
       .post<AdminOrderMutationResponse>(
         `${apiBaseUrl}/admin/cash-sale`,
@@ -132,7 +143,7 @@ export class AdminApi {
 
           this.dashboard.set({
             ...current,
-            stats: response.stats,
+            stats: response.stats ?? current.stats,
             orders: [response.order, ...current.orders],
           });
         }),
@@ -163,7 +174,7 @@ export class AdminApi {
 
           this.dashboard.set({
             ...current,
-            stats: response.stats,
+            stats: response.stats ?? current.stats,
             orders: current.orders.map((order) => (order.id === orderId ? response.order : order)),
           });
         }),
@@ -184,7 +195,7 @@ export class AdminApi {
 
           this.dashboard.set({
             ...current,
-            stats: response.stats,
+            stats: response.stats ?? current.stats,
             orders: current.orders.filter((order) => order.id !== orderId),
           });
         }),

@@ -77,6 +77,7 @@ Values you must set with your own account/infrastructure:
 
 - `PUBLIC_APP_URL`
 - `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`
+- `SELLER_EMAIL`, `SELLER_PASSWORD` (optional seller role)
 - `SMTP_*`
 - `database_id` in `wrangler.toml`
 

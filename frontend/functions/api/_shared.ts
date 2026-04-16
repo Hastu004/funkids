@@ -1,8 +1,10 @@
 import { connect } from 'cloudflare:sockets';
 
-export type PaymentMethod = 'transbank';
+export type PaymentMethod = 'transbank' | 'cash' | 'transfer' | 'debit' | 'credit';
 export type PackageId = 'pkg_2000' | 'pkg_5000' | 'pkg_15000' | 'pkg_30000';
 export type SaleChannel = 'webpay' | 'cash';
+export type AdminRole = 'admin' | 'seller';
+export type ManualSaleMethod = 'cash' | 'transfer' | 'debit' | 'credit';
 
 export interface PurchasePayload {
   fullName?: string;
@@ -25,6 +27,8 @@ export interface AdminCashSalePayload {
   email?: string;
   phone?: string;
   packageId?: PackageId;
+  saleMethod?: ManualSaleMethod;
+  receiptReference?: string;
   notes?: string;
 }
 
@@ -61,9 +65,15 @@ export interface OrderRecord {
   };
 }
 
-interface AdminConfig {
+interface AdminUserConfig {
+  role: AdminRole;
   email: string;
   password: string;
+  name: string;
+}
+
+interface AdminConfig {
+  users: AdminUserConfig[];
   sessionSecret: string;
 }
 
@@ -98,6 +108,8 @@ interface PagesEnv {
   ADMIN_EMAIL?: string;
   ADMIN_PASSWORD?: string;
   ADMIN_SESSION_SECRET?: string;
+  SELLER_EMAIL?: string;
+  SELLER_PASSWORD?: string;
   TRANSBANK_ENVIRONMENT?: string;
   TRANSBANK_COMMERCE_CODE?: string;
   TRANSBANK_API_KEY?: string;
@@ -578,19 +590,19 @@ export async function adminLogin(payload: AdminLoginPayload, env: unknown) {
 
   const email = payload.email?.trim().toLowerCase();
   const password = payload.password?.trim();
-
-  if (email !== config.email || password !== config.password) {
-    return jsonError('Credenciales de administrador invalidas.', 401);
+  const account = config.users.find((user) => user.email === email && user.password === password);
+  if (!account) {
+    return jsonError('Credenciales invalidas.', 401);
   }
 
-  const token = await signAdminToken(config);
+  const token = await signAdminToken(account, config);
 
   return Response.json({
     token,
     profile: {
-      name: 'Administrador FunKids',
-      email: config.email,
-      role: 'admin',
+      name: account.name,
+      email: account.email,
+      role: account.role,
     },
   });
 }
@@ -608,19 +620,25 @@ export async function getAdminOrders(request: Request, env: unknown) {
     return config.error;
   }
 
-  const authError = await ensureAdminAuthorization(request, config);
-  if (authError) {
-    return authError;
+  const auth = await ensureAdminAuthorization(request, config, ['admin']);
+  if ('error' in auth) {
+    return auth.error;
   }
 
+  try {
+    await ensurePaidOrderTicketsConsistency(dbResult.db);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No fue posible sincronizar los tickets del sorteo.';
+    return jsonError(message, 500);
+  }
   const orders = await fetchOrders(dbResult.db);
   const latestWinner = await findLatestRaffleWinner(dbResult.db);
 
   return Response.json({
     profile: {
-      name: 'Administrador FunKids',
-      email: config.email,
-      role: 'admin',
+      name: auth.profile.name,
+      email: auth.profile.email,
+      role: auth.profile.role,
     },
     stats: buildDashboardStats(orders),
     orders,
@@ -641,11 +659,17 @@ export async function drawAdminWinner(request: Request, env: unknown) {
     return config.error;
   }
 
-  const authError = await ensureAdminAuthorization(request, config);
-  if (authError) {
-    return authError;
+  const auth = await ensureAdminAuthorization(request, config, ['admin']);
+  if ('error' in auth) {
+    return auth.error;
   }
 
+  try {
+    await ensurePaidOrderTicketsConsistency(dbResult.db);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No fue posible sincronizar los tickets del sorteo.';
+    return jsonError(message, 500);
+  }
   const orders = await fetchOrders(dbResult.db);
   const eligibleOrders = orders.filter((order) => order.status === 'paid' && order.order.ticketNumbers.length > 0);
 
@@ -698,9 +722,9 @@ export async function createAdminCashSale(request: Request, payload: AdminCashSa
     return config.error;
   }
 
-  const authError = await ensureAdminAuthorization(request, config);
-  if (authError) {
-    return authError;
+  const auth = await ensureAdminAuthorization(request, config, ['admin', 'seller']);
+  if ('error' in auth) {
+    return auth.error;
   }
 
   await ensureReceiptSchema(dbResult.db);
@@ -727,6 +751,13 @@ export async function createAdminCashSale(request: Request, payload: AdminCashSa
     return jsonError('Debes seleccionar una modalidad de tickets.', 400);
   }
 
+  const saleMethod = normalizeManualSaleMethod(payload.saleMethod) ?? 'cash';
+  const requiresReceiptReference = saleMethod === 'debit' || saleMethod === 'credit';
+  const receiptReference = payload.receiptReference?.trim() ?? '';
+  if (requiresReceiptReference && !receiptReference) {
+    return jsonError('Debes indicar el comprobante o ID del pago para ventas con debito o credito.', 400);
+  }
+
   let ticketNumbers: string[];
   try {
     ticketNumbers = await allocateTicketNumbers(dbResult.db, selectedPackage.participations);
@@ -741,20 +772,34 @@ export async function createAdminCashSale(request: Request, payload: AdminCashSa
     phone,
     packageId: selectedPackage.id,
     ticketNumbers,
+    manualSaleMethod: saleMethod,
     wantsAccount: false,
     source: 'cash',
     status: 'paid',
-    notes: payload.notes?.trim() || 'Venta ingresada por administrador.',
+    notes: buildManualSaleNotes(saleMethod, payload.notes?.trim() ?? '', requiresReceiptReference ? receiptReference : ''),
   });
 
   await insertOrder(dbResult.db, record);
   await attemptAutomaticOrderEmails(dbResult.db, env, record.id);
-  const orders = await fetchOrders(dbResult.db);
+
+  if (auth.profile.role === 'admin') {
+    try {
+      await ensurePaidOrderTicketsConsistency(dbResult.db);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No fue posible sincronizar los tickets del sorteo.';
+      return jsonError(message, 500);
+    }
+    const orders = await fetchOrders(dbResult.db);
+    return Response.json({
+      message: 'Venta registrada correctamente.',
+      order: record,
+      stats: buildDashboardStats(orders),
+    });
+  }
 
   return Response.json({
-    message: 'Venta en efectivo registrada correctamente.',
+    message: 'Venta registrada correctamente.',
     order: record,
-    stats: buildDashboardStats(orders),
   });
 }
 
@@ -769,9 +814,9 @@ export async function resendAdminOrderReceipt(request: Request, orderId: string,
     return config.error;
   }
 
-  const authError = await ensureAdminAuthorization(request, config);
-  if (authError) {
-    return authError;
+  const auth = await ensureAdminAuthorization(request, config, ['admin']);
+  if ('error' in auth) {
+    return auth.error;
   }
 
   await ensureReceiptSchema(dbResult.db);
@@ -805,9 +850,9 @@ export async function updateAdminOrder(
     return config.error;
   }
 
-  const authError = await ensureAdminAuthorization(request, config);
-  if (authError) {
-    return authError;
+  const auth = await ensureAdminAuthorization(request, config, ['admin']);
+  if ('error' in auth) {
+    return auth.error;
   }
 
   const currentOrder = await findOrderById(dbResult.db, orderId);
@@ -866,6 +911,12 @@ export async function updateAdminOrder(
   };
 
   await replaceOrder(dbResult.db, updatedOrder);
+  try {
+    await ensurePaidOrderTicketsConsistency(dbResult.db);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No fue posible sincronizar los tickets del sorteo.';
+    return jsonError(message, 500);
+  }
   const orders = await fetchOrders(dbResult.db);
 
   return Response.json({
@@ -888,9 +939,9 @@ export async function deleteAdminOrder(request: Request, orderId: string, env: u
     return config.error;
   }
 
-  const authError = await ensureAdminAuthorization(request, config);
-  if (authError) {
-    return authError;
+  const auth = await ensureAdminAuthorization(request, config, ['admin']);
+  if ('error' in auth) {
+    return auth.error;
   }
 
   const currentOrder = await findOrderById(dbResult.db, orderId);
@@ -1172,17 +1223,43 @@ async function ensureRaffleWinnerSchema(db: D1Database) {
 
 function getAdminConfig(env: unknown): AdminConfig | { error: Response } {
   const source = (env ?? {}) as PagesEnv;
-  const email = String(source.ADMIN_EMAIL ?? '').trim().toLowerCase();
-  const password = String(source.ADMIN_PASSWORD ?? '').trim();
+  const adminEmail = String(source.ADMIN_EMAIL ?? '').trim().toLowerCase();
+  const adminPassword = String(source.ADMIN_PASSWORD ?? '').trim();
   const sessionSecret = String(source.ADMIN_SESSION_SECRET ?? '').trim();
+  const sellerEmail = String(source.SELLER_EMAIL ?? '').trim().toLowerCase();
+  const sellerPassword = String(source.SELLER_PASSWORD ?? '').trim();
 
-  if (!email || !password || !sessionSecret) {
+  if (!adminEmail || !adminPassword || !sessionSecret) {
     return {
       error: jsonError('Configuracion de administrador incompleta en el servidor.', 500),
     };
   }
 
-  return { email, password, sessionSecret };
+  if ((sellerEmail && !sellerPassword) || (!sellerEmail && sellerPassword)) {
+    return {
+      error: jsonError('La configuracion SELLER_EMAIL/SELLER_PASSWORD esta incompleta en el servidor.', 500),
+    };
+  }
+
+  const users: AdminUserConfig[] = [
+    {
+      role: 'admin',
+      email: adminEmail,
+      password: adminPassword,
+      name: 'Administrador FunKids',
+    },
+  ];
+
+  if (sellerEmail && sellerPassword) {
+    users.push({
+      role: 'seller',
+      email: sellerEmail,
+      password: sellerPassword,
+      name: 'Vendedor FunKids',
+    });
+  }
+
+  return { users, sessionSecret };
 }
 
 function getSmtpConfig(env: unknown): SmtpConfig {
@@ -1240,20 +1317,24 @@ function renderEmailBrandLockup(brandAssets: EmailBrandAssets) {
   `;
 }
 
-async function ensureAdminAuthorization(request: Request, config: AdminConfig) {
+async function ensureAdminAuthorization(request: Request, config: AdminConfig, allowedRoles: AdminRole[]) {
   const authorization = request.headers.get('authorization');
   const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : '';
 
   if (!token) {
-    return jsonError('No autorizado.', 401);
+    return { error: jsonError('No autorizado.', 401) };
   }
 
-  const isValid = await verifyAdminToken(token, config);
-  if (!isValid) {
-    return jsonError('No autorizado.', 401);
+  const profile = await verifyAdminToken(token, config);
+  if (!profile) {
+    return { error: jsonError('No autorizado.', 401) };
   }
 
-  return null;
+  if (!allowedRoles.includes(profile.role)) {
+    return { error: jsonError('No autorizado para esta operacion.', 403) };
+  }
+
+  return { profile };
 }
 
 async function fetchOrders(db: D1Database) {
@@ -1483,6 +1564,46 @@ async function replaceOrder(db: D1Database, order: OrderRecord) {
 
 async function releaseOrderTickets(db: D1Database, orderId: string) {
   await db.prepare('DELETE FROM order_tickets WHERE order_id = ?').bind(orderId).run();
+}
+
+async function ensurePaidOrderTicketsConsistency(db: D1Database) {
+  const paidOrders = await db
+    .prepare('SELECT id, participations FROM orders WHERE status = ?')
+    .bind('paid')
+    .all<{ id: string; participations: number }>();
+
+  for (const order of paidOrders.results ?? []) {
+    const desiredCount = Math.max(0, Number(order.participations ?? 0));
+    const ticketRows = await db
+      .prepare('SELECT ticket_number FROM order_tickets WHERE order_id = ? ORDER BY id ASC')
+      .bind(order.id)
+      .all<{ ticket_number: string }>();
+    const currentTickets = (ticketRows.results ?? []).map((row) => row.ticket_number);
+
+    if (currentTickets.length < desiredCount) {
+      const missingCount = desiredCount - currentTickets.length;
+      const missingTickets = await allocateTicketNumbers(db, missingCount, { excludeOrderId: order.id });
+      if (missingTickets.length > 0) {
+        await db.batch(
+          missingTickets.map((ticketNumber) =>
+            db.prepare('INSERT INTO order_tickets (order_id, ticket_number) VALUES (?, ?)').bind(order.id, ticketNumber),
+          ),
+        );
+      }
+      continue;
+    }
+
+    if (currentTickets.length > desiredCount) {
+      const extraTickets = currentTickets.slice(desiredCount);
+      if (extraTickets.length > 0) {
+        await db.batch(
+          extraTickets.map((ticketNumber) =>
+            db.prepare('DELETE FROM order_tickets WHERE order_id = ? AND ticket_number = ?').bind(order.id, ticketNumber),
+          ),
+        );
+      }
+    }
+  }
 }
 
 async function getReceiptDelivery(db: D1Database, orderId: string) {
@@ -1760,12 +1881,68 @@ function buildDashboardStats(orders: OrderRecord[]) {
   };
 }
 
+function normalizeManualSaleMethod(value: string | undefined): ManualSaleMethod | null {
+  if (value === 'cash' || value === 'transfer' || value === 'debit' || value === 'credit') {
+    return value;
+  }
+
+  return null;
+}
+
+function getManualSaleMethodMeta(method: ManualSaleMethod) {
+  switch (method) {
+    case 'cash':
+      return {
+        sourceLabel: 'Efectivo',
+        paymentMethod: 'cash' as const,
+        paymentLabel: 'Venta en efectivo',
+        defaultNote: 'Venta manual registrada en efectivo.',
+      };
+    case 'transfer':
+      return {
+        sourceLabel: 'Transferencia',
+        paymentMethod: 'transfer' as const,
+        paymentLabel: 'Venta por transferencia',
+        defaultNote: 'Venta manual registrada por transferencia.',
+      };
+    case 'debit':
+      return {
+        sourceLabel: 'Debito',
+        paymentMethod: 'debit' as const,
+        paymentLabel: 'Venta por debito',
+        defaultNote: 'Venta manual registrada con tarjeta de debito.',
+      };
+    case 'credit':
+      return {
+        sourceLabel: 'Credito',
+        paymentMethod: 'credit' as const,
+        paymentLabel: 'Venta por credito',
+        defaultNote: 'Venta manual registrada con tarjeta de credito.',
+      };
+  }
+}
+
+function buildManualSaleNotes(method: ManualSaleMethod, note: string, receiptReference: string) {
+  const fragments: string[] = [];
+
+  if (note) {
+    fragments.push(note);
+  }
+
+  if (receiptReference) {
+    fragments.push(`Comprobante/ID: ${receiptReference}`);
+  }
+
+  return fragments.join(' · ') || getManualSaleMethodMeta(method).defaultNote;
+}
+
 function buildOrderRecord(input: {
   fullName: string;
   email: string | null;
   phone: string | null;
   packageId: PackageId;
   ticketNumbers: string[];
+  manualSaleMethod?: ManualSaleMethod;
   wantsAccount: boolean;
   source: SaleChannel;
   status: 'paid' | 'pending_payment';
@@ -1782,12 +1959,15 @@ function buildOrderRecord(input: {
     throw new Error('Ticket allocation mismatch');
   }
 
+  const manualSaleMethod = input.source === 'cash' ? input.manualSaleMethod ?? 'cash' : null;
+  const manualMeta = manualSaleMethod ? getManualSaleMethodMeta(manualSaleMethod) : null;
+
   return {
     id: `order_${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`,
     createdAt: input.createdAt ?? new Date().toISOString(),
     channel: input.source,
     status: input.status,
-    sourceLabel: input.source === 'cash' ? 'Efectivo' : 'Webpay',
+    sourceLabel: manualMeta?.sourceLabel ?? 'Webpay',
     notes: input.notes,
     participant: {
       fullName: input.fullName,
@@ -1801,8 +1981,8 @@ function buildOrderRecord(input: {
       participations: selectedPackage.participations,
       ticketNumbers: input.ticketNumbers,
       amount: selectedPackage.amount,
-      paymentMethod: 'transbank' as const,
-      paymentLabel: input.source === 'cash' ? 'Venta en efectivo' : 'Webpay by Transbank',
+      paymentMethod: manualMeta?.paymentMethod ?? ('transbank' as const),
+      paymentLabel: manualMeta?.paymentLabel ?? 'Webpay by Transbank',
     },
   } satisfies OrderRecord;
 }
@@ -1824,7 +2004,7 @@ function mapOrderRow(row: OrderRow, ticketNumbers: string[]) {
     order: {
       packageId: row.package_id,
       packageLabel: row.package_label,
-      participations: ticketNumbers.length,
+      participations: row.participations,
       ticketNumbers,
       amount: row.amount,
       paymentMethod: row.payment_method,
@@ -2197,7 +2377,7 @@ function buildOrderReceiptEmail(
   const paymentStatus = order.status === 'paid' ? 'Pagado' : 'Pendiente';
   const paymentDetail =
     order.channel === 'cash'
-      ? 'Venta registrada en efectivo por el equipo administrador.'
+      ? `${order.order.paymentLabel} registrada por el equipo administrador.`
       : transaction?.authorizationCode
         ? `Autorizacion Webpay: ${transaction.authorizationCode}`
         : 'Pago procesado con Webpay by Transbank.';
@@ -2322,7 +2502,7 @@ function buildInternalOrderNotificationEmail(
   const phone = order.participant.phone ?? 'Sin telefono';
   const paymentDetail =
     order.channel === 'cash'
-      ? 'Venta en efectivo registrada por el administrador.'
+      ? `${order.order.paymentLabel} registrada por el administrador.`
       : transaction?.authorizationCode
         ? `Pago Webpay confirmado. Autorizacion: ${transaction.authorizationCode}`
         : 'Pago Webpay confirmado.';
@@ -2685,30 +2865,35 @@ function isSalesClosed() {
   return Date.now() >= SALES_CLOSE_AT;
 }
 
-async function signAdminToken(config: AdminConfig) {
+async function signAdminToken(profile: AdminUserConfig, config: AdminConfig) {
   const expiresAt = Date.now() + 1000 * 60 * 60 * 12;
-  const payload = `${config.email}.${expiresAt}`;
+  const payload = `${profile.role}|${profile.email}|${expiresAt}`;
   const signature = await createSignature(payload, config.sessionSecret);
-  return `${payload}.${signature}`;
+  return `${payload}|${signature}`;
 }
 
 async function verifyAdminToken(token: string, config: AdminConfig) {
-  const parts = token.split('.');
-  if (parts.length < 3) {
-    return false;
+  const [roleRaw, emailRaw, expiresAtRaw, signature] = token.split('|');
+  const role = roleRaw === 'admin' || roleRaw === 'seller' ? roleRaw : null;
+  const email = emailRaw?.trim().toLowerCase() ?? '';
+  const expiresAt = Number(expiresAtRaw);
+
+  if (!role || !email || !signature || !Number.isFinite(expiresAt) || expiresAt < Date.now()) {
+    return null;
   }
 
-  const expiresAt = Number(parts[parts.length - 2]);
-  const signature = parts[parts.length - 1];
-  const email = parts.slice(0, -2).join('.');
-
-  if (!email || email !== config.email || !Number.isFinite(expiresAt) || expiresAt < Date.now()) {
-    return false;
+  const profile = config.users.find((user) => user.role === role && user.email === email);
+  if (!profile) {
+    return null;
   }
 
-  const payload = `${email}.${expiresAt}`;
+  const payload = `${role}|${email}|${expiresAt}`;
   const expectedSignature = await createSignature(payload, config.sessionSecret);
-  return expectedSignature === signature;
+  if (expectedSignature !== signature) {
+    return null;
+  }
+
+  return profile;
 }
 
 async function createSignature(payload: string, secret: string) {

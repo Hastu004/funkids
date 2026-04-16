@@ -23,6 +23,6 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Inicio');
     expect(compiled.textContent).toContain('Bases legales');
-    expect(compiled.textContent).toContain('Admin');
+    expect(compiled.textContent).toContain('Login');
   });
 });

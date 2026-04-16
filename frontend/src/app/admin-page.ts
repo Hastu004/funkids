@@ -1,13 +1,18 @@
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, computed, inject, OnDestroy, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { AdminApi, type AdminOrder, type AdminRaffleWinner } from './admin-api';
+import { AdminApi, type AdminOrder, type AdminRaffleWinner, type AdminRole, type ManualSaleMethod } from './admin-api';
 import { LandingApi } from './landing-api';
 
 interface WinnerPreview {
   fullName: string;
   ticketNumber: string;
   packageLabel: string;
+}
+
+interface SaleMethodOption {
+  id: ManualSaleMethod;
+  label: string;
 }
 
 @Component({
@@ -24,15 +29,17 @@ interface WinnerPreview {
       <section class="page-section admin-layout" *ngIf="session(); else loginView">
         <div class="admin-header-card">
           <div class="admin-header-card__copy">
-            <p class="eyebrow">Panel administrador</p>
-            <h1 class="admin-title">Historial del sorteo</h1>
-            <p class="lead admin-lead">Filtra, edita y exporta registros desde una sola tabla.</p>
+            <p class="eyebrow">{{ isAdmin() ? 'Panel administrador' : 'Panel vendedor' }}</p>
+            <h1 class="admin-title">{{ isAdmin() ? 'Historial del sorteo' : 'Registrar ventas' }}</h1>
+            <p class="lead admin-lead">
+              {{ isAdmin() ? 'Filtra, edita y exporta registros desde una sola tabla.' : 'Registra ventas manuales de tickets para el sorteo.' }}
+            </p>
           </div>
 
           <div class="admin-header-card__actions">
             <p class="admin-user">{{ session()?.profile?.name }}</p>
             <div class="admin-header-card__buttons">
-              <button class="button secondary" type="button" (click)="downloadExcel()">
+              <button class="button secondary" type="button" (click)="downloadExcel()" *ngIf="isAdmin()">
                 Descargar Excel
               </button>
               <button class="button secondary" type="button" (click)="logout()">Cerrar sesion</button>
@@ -40,7 +47,7 @@ interface WinnerPreview {
           </div>
         </div>
 
-        <div class="admin-summary" *ngIf="dashboard() as dashboardData">
+        <div class="admin-summary" *ngIf="isAdmin() && dashboard() as dashboardData">
           <article class="meta-card">
             <span>Ventas</span>
             <strong>{{ dashboardData.stats.totalOrders }}</strong>
@@ -54,12 +61,12 @@ interface WinnerPreview {
             <strong>{{ dashboardData.stats.totalParticipations }}</strong>
           </article>
           <article class="meta-card">
-            <span>Ventas en efectivo</span>
+            <span>Ventas manuales</span>
             <strong>{{ dashboardData.stats.cashSales }}</strong>
           </article>
         </div>
 
-        <section class="admin-grid" [class.admin-grid--editing]="!!editingOrder()" *ngIf="dashboard() as dashboardData">
+        <section class="admin-grid" [class.admin-grid--editing]="!!editingOrder()" *ngIf="isAdmin() && dashboard() as dashboardData">
           <aside class="admin-stack" *ngIf="editingOrder()">
             <article class="admin-card">
               <p class="eyebrow subtle">Editar</p>
@@ -271,6 +278,64 @@ interface WinnerPreview {
             </div>
           </section>
         </section>
+
+        <section class="admin-card" *ngIf="isSeller()">
+          <p class="eyebrow subtle">Nueva venta</p>
+          <h2>Registrar venta manual</h2>
+          <p class="admin-copy">Selecciona modalidad de pago y registra al participante.</p>
+
+          <form [formGroup]="cashSaleForm" (ngSubmit)="submitCashSale()" class="purchase-form">
+            <div class="admin-modal__grid">
+              <label class="field">
+                <span>Nombre completo</span>
+                <input type="text" formControlName="fullName" placeholder="Ej: Jane Doe" />
+              </label>
+
+              <label class="field">
+                <span>Telefono</span>
+                <input type="tel" formControlName="phone" placeholder="+56 9 1234 5678" />
+              </label>
+
+              <label class="field">
+                <span>Email opcional</span>
+                <input type="email" formControlName="email" placeholder="cliente@correo.cl" />
+              </label>
+
+              <label class="field">
+                <span>Modalidad de tickets</span>
+                <select formControlName="packageId">
+                  <option value="">Selecciona una opcion</option>
+                  <option *ngFor="let option of landingData.packages" [value]="option.id">{{ option.label }}</option>
+                </select>
+              </label>
+            </div>
+
+            <label class="field">
+              <span>Metodo de pago</span>
+              <select formControlName="saleMethod">
+                <option *ngFor="let option of manualSaleMethods" [value]="option.id">{{ option.label }}</option>
+              </select>
+            </label>
+
+            <label class="field" *ngIf="requiresReceiptReference()">
+              <span>Comprobante o ID del comprobante</span>
+              <input type="text" formControlName="receiptReference" placeholder="Ej: T123456789" />
+            </label>
+
+            <label class="field">
+              <span>Nota interna</span>
+              <input type="text" formControlName="notes" placeholder="Ej: Venta en caja principal" />
+            </label>
+
+            <div class="admin-inline-actions">
+              <button class="button primary" type="submit" [disabled]="isSavingCashSale()">
+                {{ isSavingCashSale() ? 'Guardando...' : 'Registrar venta' }}
+              </button>
+            </div>
+
+            <p class="error server-error" *ngIf="cashSaleMessage()">{{ cashSaleMessage() }}</p>
+          </form>
+        </section>
       </section>
 
       <div class="admin-modal-backdrop" *ngIf="isCreateModalOpen()" (click)="closeCreateModal()">
@@ -278,7 +343,7 @@ interface WinnerPreview {
           <div class="admin-modal__header">
             <div>
               <p class="eyebrow subtle">Crear</p>
-              <h2>Ingresar pago en efectivo</h2>
+              <h2>Ingresar venta manual</h2>
               <p class="admin-copy">Registra ventas manuales para sumar tickets y participaciones al historial.</p>
             </div>
 
@@ -314,13 +379,25 @@ interface WinnerPreview {
             </div>
 
             <label class="field">
+              <span>Metodo de pago</span>
+              <select formControlName="saleMethod">
+                <option *ngFor="let option of manualSaleMethods" [value]="option.id">{{ option.label }}</option>
+              </select>
+            </label>
+
+            <label class="field" *ngIf="requiresReceiptReference()">
+              <span>Comprobante o ID del comprobante</span>
+              <input type="text" formControlName="receiptReference" placeholder="Ej: T123456789" />
+            </label>
+
+            <label class="field">
               <span>Nota interna</span>
               <input type="text" formControlName="notes" placeholder="Ej: Pago en caja principal" />
             </label>
 
             <div class="admin-inline-actions">
               <button class="button primary" type="submit" [disabled]="isSavingCashSale()">
-                {{ isSavingCashSale() ? 'Guardando...' : 'Guardar venta en efectivo' }}
+                {{ isSavingCashSale() ? 'Guardando...' : 'Guardar venta' }}
               </button>
               <button class="button secondary" type="button" (click)="closeCreateModal()">Cancelar</button>
             </div>
@@ -426,14 +503,14 @@ interface WinnerPreview {
       <ng-template #loginView>
         <section class="page-section admin-login">
           <article class="admin-card admin-card--login">
-            <p class="eyebrow">Acceso administrador</p>
-            <h1>Ingresa al panel del sorteo</h1>
-            <p class="lead">Desde aqui puedes revisar las compras y registrar ventas en efectivo.</p>
+            <p class="eyebrow">Acceso al panel</p>
+            <h1>Ingresa con tu rol</h1>
+            <p class="lead">Administrador o vendedor, segun las credenciales configuradas en el servidor.</p>
 
             <form [formGroup]="loginForm" (ngSubmit)="submitLogin()" class="purchase-form">
               <label class="field">
-                <span>Email admin</span>
-                <input type="email" formControlName="email" placeholder="correo administrador" />
+                <span>Email</span>
+                <input type="email" formControlName="email" placeholder="correo de acceso" />
               </label>
 
               <label class="field">
@@ -445,7 +522,7 @@ interface WinnerPreview {
                 {{ isLoggingIn() ? 'Ingresando...' : 'Entrar al panel' }}
               </button>
 
-              <p class="helper-text">Usa las credenciales configuradas para el panel administrador.</p>
+              <p class="helper-text">Usa las credenciales configuradas para tu rol.</p>
               <p class="error server-error" *ngIf="loginError()">{{ loginError() }}</p>
             </form>
           </article>
@@ -461,6 +538,9 @@ export class AdminPage implements OnDestroy {
   private readonly pageSize = 30;
 
   protected readonly session = computed(() => this.adminApi.session());
+  protected readonly currentRole = computed<AdminRole>(() => this.session()?.profile.role ?? 'admin');
+  protected readonly isAdmin = computed(() => this.currentRole() === 'admin');
+  protected readonly isSeller = computed(() => this.currentRole() === 'seller');
   protected readonly dashboard = computed(() => this.adminApi.dashboard());
   protected readonly landing = computed(() => this.landingApi.landing());
   protected readonly searchTerm = signal('');
@@ -482,6 +562,12 @@ export class AdminPage implements OnDestroy {
   protected readonly revealedWinner = signal<AdminRaffleWinner | null>(null);
   protected readonly animatedWinnerPreview = signal<WinnerPreview | null>(null);
   protected readonly toast = signal<{ type: 'success' | 'error'; title: string; message: string } | null>(null);
+  protected readonly manualSaleMethods: SaleMethodOption[] = [
+    { id: 'cash', label: 'Efectivo' },
+    { id: 'transfer', label: 'Transferencia' },
+    { id: 'debit', label: 'Debito' },
+    { id: 'credit', label: 'Credito' },
+  ];
 
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private winnerAnimationTimer: ReturnType<typeof setInterval> | null = null;
@@ -538,7 +624,7 @@ export class AdminPage implements OnDestroy {
     (this.dashboard()?.orders ?? []).filter((order) => order.status === 'paid' && order.order.ticketNumbers.length > 0),
   );
   protected readonly eligiblePaidTicketsCount = computed(() =>
-    this.eligiblePaidOrders().reduce((sum, order) => sum + order.order.ticketNumbers.length, 0),
+    this.eligiblePaidOrders().reduce((sum, order) => sum + order.order.participations, 0),
   );
   protected readonly eligiblePaidCustomersCount = computed(() => this.eligiblePaidOrders().length);
 
@@ -552,7 +638,14 @@ export class AdminPage implements OnDestroy {
     phone: ['', Validators.required],
     email: ['', Validators.email],
     packageId: ['', Validators.required],
+    saleMethod: ['cash' as ManualSaleMethod, Validators.required],
+    receiptReference: [''],
     notes: [''],
+  });
+
+  protected readonly requiresReceiptReference = computed(() => {
+    const method = this.cashSaleForm.controls.saleMethod.value;
+    return method === 'debit' || method === 'credit';
   });
 
   protected readonly editForm = this.formBuilder.nonNullable.group({
@@ -566,6 +659,10 @@ export class AdminPage implements OnDestroy {
 
   constructor() {
     this.landingApi.loadLanding();
+    this.syncReceiptReferenceValidator(this.cashSaleForm.controls.saleMethod.value);
+    this.cashSaleForm.controls.saleMethod.valueChanges.subscribe((method) => {
+      this.syncReceiptReferenceValidator(method);
+    });
 
     if (this.adminApi.session()) {
       this.refreshDashboard();
@@ -620,8 +717,11 @@ export class AdminPage implements OnDestroy {
           phone: '',
           email: '',
           packageId: '',
+          saleMethod: 'cash',
+          receiptReference: '',
           notes: '',
         });
+        this.syncReceiptReferenceValidator('cash');
         this.currentPage.set(1);
         this.isCreateModalOpen.set(false);
         this.isSavingCashSale.set(false);
@@ -634,6 +734,10 @@ export class AdminPage implements OnDestroy {
   }
 
   protected submitEdit() {
+    if (!this.isAdmin()) {
+      return;
+    }
+
     const currentOrder = this.editingOrder();
     if (!currentOrder) {
       return;
@@ -662,6 +766,10 @@ export class AdminPage implements OnDestroy {
   }
 
   protected startEdit(order: AdminOrder) {
+    if (!this.isAdmin()) {
+      return;
+    }
+
     this.editingOrder.set(order);
     this.editMessage.set('');
     this.editForm.reset({
@@ -675,6 +783,10 @@ export class AdminPage implements OnDestroy {
   }
 
   protected cancelEdit() {
+    if (!this.isAdmin()) {
+      return;
+    }
+
     this.editingOrder.set(null);
     this.editMessage.set('');
     this.editForm.reset({
@@ -688,6 +800,10 @@ export class AdminPage implements OnDestroy {
   }
 
   protected deleteOrder(order: AdminOrder) {
+    if (!this.isAdmin()) {
+      return;
+    }
+
     const shouldDelete = typeof window === 'undefined' ? true : window.confirm(`Eliminar registro de ${order.participant.fullName}?`);
     if (!shouldDelete) {
       return;
@@ -714,6 +830,10 @@ export class AdminPage implements OnDestroy {
   }
 
   protected resendEmail(order: AdminOrder) {
+    if (!this.isAdmin()) {
+      return;
+    }
+
     if (!order.participant.email || this.resendingEmailOrderId() === order.id) {
       return;
     }
@@ -733,6 +853,10 @@ export class AdminPage implements OnDestroy {
   }
 
   protected openDrawModal() {
+    if (!this.isAdmin()) {
+      return;
+    }
+
     this.drawWinnerError.set('');
     this.revealedWinner.set(null);
     this.animatedWinnerPreview.set(null);
@@ -740,6 +864,10 @@ export class AdminPage implements OnDestroy {
   }
 
   protected closeDrawModal() {
+    if (!this.isAdmin()) {
+      return;
+    }
+
     if (this.isDrawingWinner()) {
       return;
     }
@@ -752,6 +880,10 @@ export class AdminPage implements OnDestroy {
   }
 
   protected startWinnerDraw() {
+    if (!this.isAdmin()) {
+      return;
+    }
+
     if (this.isDrawingWinner()) {
       return;
     }
@@ -796,6 +928,10 @@ export class AdminPage implements OnDestroy {
   }
 
   protected runAnotherDraw() {
+    if (!this.isAdmin()) {
+      return;
+    }
+
     this.revealedWinner.set(null);
     this.startWinnerDraw();
   }
@@ -824,6 +960,10 @@ export class AdminPage implements OnDestroy {
   }
 
   protected downloadExcel() {
+    if (!this.isAdmin()) {
+      return;
+    }
+
     const rows = this.filteredOrders();
     const workbook = buildExcelWorkbook(rows);
     const blob = new Blob([workbook], { type: 'application/vnd.ms-excel;charset=utf-8;' });
@@ -840,12 +980,30 @@ export class AdminPage implements OnDestroy {
   }
 
   protected openCreateModal() {
+    if (!this.isAdmin()) {
+      return;
+    }
+
     this.cashSaleMessage.set('');
     this.isCreateModalOpen.set(true);
   }
 
   protected closeCreateModal() {
     this.isCreateModalOpen.set(false);
+  }
+
+  private syncReceiptReferenceValidator(method: ManualSaleMethod) {
+    const control = this.cashSaleForm.controls.receiptReference;
+    const requiresReference = method === 'debit' || method === 'credit';
+
+    if (requiresReference) {
+      control.setValidators([Validators.required, Validators.minLength(3)]);
+    } else {
+      control.clearValidators();
+      control.setValue('', { emitEvent: false });
+    }
+
+    control.updateValueAndValidity({ emitEvent: false });
   }
 
   private showToast(type: 'success' | 'error', title: string, message: string) {
@@ -862,13 +1020,19 @@ export class AdminPage implements OnDestroy {
   }
 
   private refreshDashboard() {
+    if (!this.isAdmin()) {
+      this.adminApi.dashboard.set(null);
+      this.currentPage.set(1);
+      return;
+    }
+
     this.adminApi.loadDashboard().subscribe({
       next: () => {
         this.currentPage.set(1);
       },
       error: () => {
         this.adminApi.logout();
-        this.loginError.set('La sesion admin expiro. Vuelve a ingresar.');
+        this.loginError.set('La sesion expiro. Vuelve a ingresar.');
       },
     });
   }

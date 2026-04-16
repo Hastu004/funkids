@@ -1,7 +1,7 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
-export type PaymentMethodId = 'transbank';
+export type PaymentMethodId = 'transbank' | 'cash' | 'transfer' | 'debit' | 'credit';
 export type PackageId = 'pkg_2000' | 'pkg_5000' | 'pkg_15000' | 'pkg_30000';
 
 export interface LandingData {
