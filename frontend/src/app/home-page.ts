@@ -8,6 +8,8 @@ import { LandingApi, type PurchaseResponse } from './landing-api';
 registerLocaleData(localeEsCl);
 
 const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
+const SALES_CLOSE_AT = new Date('2026-08-01T00:00:00-04:00').getTime();
+const SALES_CLOSE_MESSAGE = 'La venta de tickets finalizo el 31 de julio de 2026 a las 23:59 (hora de Chile).';
 
 @Component({
   selector: 'app-home-page',
@@ -57,6 +59,8 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
             <h2>{{ landing.raffle.title }}</h2>
             <p>Elige participaciones, paga con Webpay y recibe tus numeros al confirmar el pago.</p>
           </div>
+
+          <p class="error server-error" *ngIf="salesClosed">{{ salesCloseMessage }}</p>
 
           <form [formGroup]="purchaseForm" (ngSubmit)="submitPurchase()" class="purchase-form">
             <label class="field">
@@ -141,8 +145,8 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
               </div>
             </div>
 
-            <button class="button primary submit-button" type="submit" [disabled]="isSubmitting()">
-              {{ isSubmitting() ? 'Preparando pago...' : 'Continuar al pago' }}
+            <button class="button primary submit-button" type="submit" [disabled]="isSubmitting() || salesClosed">
+              {{ salesClosed ? 'Ventas cerradas' : isSubmitting() ? 'Preparando pago...' : 'Continuar al pago' }}
             </button>
 
             <p class="helper-text">{{ landing.raffle.legalDisclaimer }}</p>
@@ -180,7 +184,7 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
 
         <article class="info-card social-proof-card">
           <h2>Faltan {{ daysUntilDraw }} dias para el sorteo en vivo.</h2>
-          <p>Sorteo en vivo el 30 de junio.</p>
+          <p>Sorteo en vivo el 31 de julio.</p>
         </article>
 
         <article class="info-card trust-card">
@@ -198,7 +202,7 @@ const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
 
       <section class="page-section final-cta" id="contacto">
         <article class="final-cta__card">
-          <h2>Sorteo en vivo el 30 de junio.</h2>
+          <h2>Sorteo en vivo el 31 de julio.</h2>
           <a
             class="button whatsapp-button"
             href="https://wa.me/56988207303?text=Hola%20FunKids%2C%20quiero%20participar%20en%20el%20sorteo."
@@ -225,6 +229,8 @@ export class HomePage {
   private readonly api = inject(LandingApi);
   private readonly formBuilder = inject(FormBuilder);
   protected readonly daysUntilDraw = this.calculateDaysUntilDraw();
+  protected readonly salesClosed = this.isSalesClosed();
+  protected readonly salesCloseMessage = SALES_CLOSE_MESSAGE;
 
   protected readonly galleryMoments = [
     {
@@ -274,6 +280,12 @@ export class HomePage {
   }
 
   protected submitPurchase() {
+    if (this.salesClosed) {
+      this.submitError.set(SALES_CLOSE_MESSAGE);
+      this.purchaseResult.set(null);
+      return;
+    }
+
     if (this.purchaseForm.invalid) {
       this.purchaseForm.markAllAsTouched();
       this.submitError.set('Revisa el formulario antes de continuar.');
@@ -367,9 +379,17 @@ export class HomePage {
   }
 
   private calculateDaysUntilDraw() {
-    const drawDate = new Date('2026-06-30T23:59:59-04:00');
+    const drawDate = new Date('2026-07-31T23:59:59-04:00');
     const now = Date.now();
     const remainingMs = drawDate.getTime() - now;
     return Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
+  }
+
+  private isSalesClosed() {
+    if (!Number.isFinite(SALES_CLOSE_AT)) {
+      return false;
+    }
+
+    return Date.now() >= SALES_CLOSE_AT;
   }
 }

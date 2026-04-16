@@ -247,6 +247,10 @@ const packages = [
   { id: 'pkg_15000' as const, amount: 15000, participations: 10, label: '$15.000 · 10 tickets' },
   { id: 'pkg_30000' as const, amount: 30000, participations: 25, label: '$30.000 · 25 tickets' },
 ];
+const RAFFLE_MAX_PARTICIPATIONS = 1000;
+
+const SALES_CLOSE_AT = Date.parse('2026-08-01T00:00:00-04:00');
+const SALES_CLOSE_MESSAGE = 'La venta de tickets finalizo el 31 de julio de 2026 a las 23:59 (hora de Chile).';
 
 export function getLandingData() {
   return {
@@ -260,7 +264,7 @@ export function getLandingData() {
       title: 'Cumpleaños Soñado Fun Kids',
       drawDate: '31 de julio de 2026',
       salePeriod: '16 de abril de 2026 al 31 de julio de 2026',
-      maxParticipations: 1000,
+      maxParticipations: RAFFLE_MAX_PARTICIPATIONS,
       legalDisclaimer:
         'La participacion implica aceptacion total de las bases y no aplica derecho a retracto por tratarse de un producto digital.',
     },
@@ -432,6 +436,10 @@ export function getLandingData() {
 }
 
 export async function createPurchase(payload: PurchasePayload, env: unknown, request: Request) {
+  if (isSalesClosed()) {
+    return jsonError(SALES_CLOSE_MESSAGE, 403);
+  }
+
   const dbResult = getDb(env);
   if ('error' in dbResult) {
     return dbResult.error;
@@ -474,11 +482,20 @@ export async function createPurchase(payload: PurchasePayload, env: unknown, req
     return jsonError('Si deseas registrarte, la contrasena debe tener al menos 6 caracteres.', 400);
   }
 
+  let ticketNumbers: string[];
+  try {
+    ticketNumbers = await allocateTicketNumbers(dbResult.db, selectedPackage.participations);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No hay tickets suficientes disponibles para completar la compra.';
+    return jsonError(message, 409);
+  }
+
   const record = buildOrderRecord({
     fullName,
     email,
     phone: payload.phone?.trim() || null,
     packageId: selectedPackage.id,
+    ticketNumbers,
     wantsAccount,
     source: 'webpay',
     status: 'pending_payment',
@@ -667,6 +684,10 @@ export async function drawAdminWinner(request: Request, env: unknown) {
 }
 
 export async function createAdminCashSale(request: Request, payload: AdminCashSalePayload, env: unknown) {
+  if (isSalesClosed()) {
+    return jsonError(SALES_CLOSE_MESSAGE, 403);
+  }
+
   const dbResult = getDb(env);
   if ('error' in dbResult) {
     return dbResult.error;
@@ -706,11 +727,20 @@ export async function createAdminCashSale(request: Request, payload: AdminCashSa
     return jsonError('Debes seleccionar una modalidad de tickets.', 400);
   }
 
+  let ticketNumbers: string[];
+  try {
+    ticketNumbers = await allocateTicketNumbers(dbResult.db, selectedPackage.participations);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No hay tickets suficientes disponibles para registrar la venta.';
+    return jsonError(message, 409);
+  }
+
   const record = buildOrderRecord({
     fullName,
     email,
     phone,
     packageId: selectedPackage.id,
+    ticketNumbers,
     wantsAccount: false,
     source: 'cash',
     status: 'paid',
@@ -805,6 +835,16 @@ export async function updateAdminOrder(
     return jsonError('Si ingresas un email, debe ser valido.', 400);
   }
 
+  let ticketNumbers: string[];
+  try {
+    ticketNumbers = await allocateTicketNumbers(dbResult.db, selectedPackage.participations, {
+      excludeOrderId: currentOrder.id,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No hay tickets suficientes para actualizar este registro.';
+    return jsonError(message, 409);
+  }
+
   const updatedOrder: OrderRecord = {
     ...currentOrder,
     status: payload.status === 'pending_payment' ? 'pending_payment' : 'paid',
@@ -820,7 +860,7 @@ export async function updateAdminOrder(
       packageId: selectedPackage.id,
       packageLabel: selectedPackage.label,
       participations: selectedPackage.participations,
-      ticketNumbers: generateTicketNumbers(selectedPackage.participations),
+      ticketNumbers,
       amount: selectedPackage.amount,
     },
   };
@@ -942,6 +982,7 @@ export async function handleWebpayReturn(request: Request, env: unknown) {
         sessionId,
       }),
     });
+    await releaseOrderTickets(dbResult.db, fallbackOrderId);
   }
 
   return redirectToWebpayResult(webpayConfig.appUrl, fallbackOrderId);
@@ -1440,6 +1481,10 @@ async function replaceOrder(db: D1Database, order: OrderRecord) {
   ]);
 }
 
+async function releaseOrderTickets(db: D1Database, orderId: string) {
+  await db.prepare('DELETE FROM order_tickets WHERE order_id = ?').bind(orderId).run();
+}
+
 async function getReceiptDelivery(db: D1Database, orderId: string) {
   const row = await db
     .prepare('SELECT * FROM receipt_deliveries WHERE order_id = ? LIMIT 1')
@@ -1720,6 +1765,7 @@ function buildOrderRecord(input: {
   email: string | null;
   phone: string | null;
   packageId: PackageId;
+  ticketNumbers: string[];
   wantsAccount: boolean;
   source: SaleChannel;
   status: 'paid' | 'pending_payment';
@@ -1730,6 +1776,10 @@ function buildOrderRecord(input: {
 
   if (!selectedPackage) {
     throw new Error('Package not found');
+  }
+
+  if (input.ticketNumbers.length !== selectedPackage.participations) {
+    throw new Error('Ticket allocation mismatch');
   }
 
   return {
@@ -1749,7 +1799,7 @@ function buildOrderRecord(input: {
       packageId: selectedPackage.id,
       packageLabel: selectedPackage.label,
       participations: selectedPackage.participations,
-      ticketNumbers: generateTicketNumbers(selectedPackage.participations),
+      ticketNumbers: input.ticketNumbers,
       amount: selectedPackage.amount,
       paymentMethod: 'transbank' as const,
       paymentLabel: input.source === 'cash' ? 'Venta en efectivo' : 'Webpay by Transbank',
@@ -1774,7 +1824,7 @@ function mapOrderRow(row: OrderRow, ticketNumbers: string[]) {
     order: {
       packageId: row.package_id,
       packageLabel: row.package_label,
-      participations: row.participations,
+      participations: ticketNumbers.length,
       ticketNumbers,
       amount: row.amount,
       paymentMethod: row.payment_method,
@@ -1904,6 +1954,9 @@ async function commitWebpayPayment(db: D1Database, config: TransbankConfig, toke
   });
 
   await updateOrderPaymentStatus(db, orderId, isApprovedWebpayTransaction(committed) ? 'paid' : 'pending_payment');
+  if (!isApprovedWebpayTransaction(committed)) {
+    await releaseOrderTickets(db, orderId);
+  }
 
   return { orderId, transaction: committed };
 }
@@ -1947,6 +2000,7 @@ async function settleAbortedWebpayTransaction(
         },
       ),
     });
+    await releaseOrderTickets(db, orderId);
   }
 
   return { orderId };
@@ -2055,8 +2109,61 @@ function safeJsonParse(value: string) {
   }
 }
 
-function generateTicketNumbers(count: number) {
-  return Array.from({ length: count }, () => `FK-${String(1200 + Math.floor(Math.random() * 8000)).padStart(4, '0')}`);
+function formatTicketNumber(sequence: number) {
+  return `FK-${String(sequence).padStart(4, '0')}`;
+}
+
+async function countAssignedTickets(db: D1Database, options?: { excludeOrderId?: string }) {
+  const excludeOrderId = options?.excludeOrderId?.trim();
+
+  if (excludeOrderId) {
+    const row = await db.prepare('SELECT COUNT(*) AS total FROM order_tickets WHERE order_id != ?').bind(excludeOrderId).first<{
+      total: number;
+    }>();
+    return Number(row?.total ?? 0);
+  }
+
+  const row = await db.prepare('SELECT COUNT(*) AS total FROM order_tickets').first<{ total: number }>();
+  return Number(row?.total ?? 0);
+}
+
+async function allocateTicketNumbers(db: D1Database, count: number, options?: { excludeOrderId?: string }) {
+  if (!Number.isInteger(count) || count <= 0) {
+    throw new Error('La cantidad de tickets solicitada no es valida.');
+  }
+
+  const assignedTickets = await countAssignedTickets(db, options);
+  const remainingCapacity = RAFFLE_MAX_PARTICIPATIONS - assignedTickets;
+  if (count > remainingCapacity) {
+    throw new Error(
+      `Solo quedan ${Math.max(remainingCapacity, 0)} tickets disponibles de ${RAFFLE_MAX_PARTICIPATIONS} para el sorteo.`,
+    );
+  }
+
+  const excludeOrderId = options?.excludeOrderId?.trim();
+  const usedTicketsResult = excludeOrderId
+    ? await db
+        .prepare('SELECT ticket_number FROM order_tickets WHERE order_id != ?')
+        .bind(excludeOrderId)
+        .all<{ ticket_number: string }>()
+    : await db.prepare('SELECT ticket_number FROM order_tickets').all<{ ticket_number: string }>();
+
+  const usedTickets = new Set((usedTicketsResult.results ?? []).map((row) => row.ticket_number));
+  const allocated: string[] = [];
+
+  for (let sequence = 1; sequence <= RAFFLE_MAX_PARTICIPATIONS; sequence += 1) {
+    const candidate = formatTicketNumber(sequence);
+    if (usedTickets.has(candidate)) {
+      continue;
+    }
+
+    allocated.push(candidate);
+    if (allocated.length === count) {
+      return allocated;
+    }
+  }
+
+  throw new Error('No fue posible asignar tickets unicos para completar la compra.');
 }
 
 function randomInt(maxExclusive: number) {
@@ -2568,6 +2675,14 @@ function normalizePublicAppUrl(raw: string) {
   } catch {
     return null;
   }
+}
+
+function isSalesClosed() {
+  if (!Number.isFinite(SALES_CLOSE_AT)) {
+    return false;
+  }
+
+  return Date.now() >= SALES_CLOSE_AT;
 }
 
 async function signAdminToken(config: AdminConfig) {
