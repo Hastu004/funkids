@@ -6,6 +6,8 @@ export type SaleChannel = 'webpay' | 'cash';
 export type AdminRole = 'admin' | 'seller';
 export type ManualSaleMethod = 'cash' | 'transfer' | 'debit' | 'credit';
 
+const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
+
 export interface PurchasePayload {
   fullName?: string;
   email?: string;
@@ -466,6 +468,7 @@ export async function createPurchase(payload: PurchasePayload, env: unknown, req
 
   const email = payload.email?.trim().toLowerCase();
   const fullName = payload.fullName?.trim();
+  const phone = payload.phone?.trim() ?? '';
   const wantsAccount = Boolean(payload.wantsAccount);
   const acceptedTerms = Boolean(payload.acceptedTerms);
   const selectedPackage = packages.find((item) => item.id === payload.packageId);
@@ -476,6 +479,10 @@ export async function createPurchase(payload: PurchasePayload, env: unknown, req
 
   if (!email || !isValidEmail(email)) {
     return jsonError('Debes ingresar un email valido.', 400);
+  }
+
+  if (!phone || !isValidPhone(phone)) {
+    return jsonError('Debes ingresar un telefono valido con formato +56 9 1234 5678.', 400);
   }
 
   if (!selectedPackage) {
@@ -505,7 +512,7 @@ export async function createPurchase(payload: PurchasePayload, env: unknown, req
   const record = buildOrderRecord({
     fullName,
     email,
-    phone: payload.phone?.trim() || null,
+    phone,
     packageId: selectedPackage.id,
     ticketNumbers,
     wantsAccount,
@@ -620,7 +627,7 @@ export async function getAdminOrders(request: Request, env: unknown) {
     return config.error;
   }
 
-  const auth = await ensureAdminAuthorization(request, config, ['admin']);
+  const auth = await ensureAdminAuthorization(request, config, ['admin', 'seller']);
   if ('error' in auth) {
     return auth.error;
   }
@@ -633,6 +640,8 @@ export async function getAdminOrders(request: Request, env: unknown) {
   }
   const orders = await fetchOrders(dbResult.db);
   const latestWinner = await findLatestRaffleWinner(dbResult.db);
+  const visibleOrders =
+    auth.profile.role === 'seller' ? orders.filter((order) => order.channel === 'cash').slice(0, 3) : orders;
 
   return Response.json({
     profile: {
@@ -640,8 +649,8 @@ export async function getAdminOrders(request: Request, env: unknown) {
       email: auth.profile.email,
       role: auth.profile.role,
     },
-    stats: buildDashboardStats(orders),
-    orders,
+    stats: buildDashboardStats(visibleOrders),
+    orders: visibleOrders,
     latestWinner,
   });
 }
@@ -741,6 +750,10 @@ export async function createAdminCashSale(request: Request, payload: AdminCashSa
 
   if (!phone) {
     return jsonError('El telefono es obligatorio para registrar la venta.', 400);
+  }
+
+  if (!isValidPhone(phone)) {
+    return jsonError('El telefono debe usar el formato +56 9 1234 5678.', 400);
   }
 
   if (email && !isValidEmail(email)) {
@@ -873,6 +886,10 @@ export async function updateAdminOrder(
   const phone = payload.phone?.trim();
   if (!phone) {
     return jsonError('El telefono es obligatorio.', 400);
+  }
+
+  if (!isValidPhone(phone)) {
+    return jsonError('El telefono debe usar el formato +56 9 1234 5678.', 400);
   }
 
   const email = payload.email?.trim().toLowerCase() || null;
@@ -2917,6 +2934,10 @@ function toHex(buffer: ArrayBuffer) {
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(email);
+}
+
+function isValidPhone(phone: string) {
+  return PHONE_PATTERN.test(phone);
 }
 
 function jsonError(message: string, status: number) {

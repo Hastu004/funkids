@@ -1,8 +1,10 @@
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, computed, inject, OnDestroy, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators, type FormControl } from '@angular/forms';
 import { AdminApi, type AdminOrder, type AdminRaffleWinner, type AdminRole, type ManualSaleMethod } from './admin-api';
 import { LandingApi } from './landing-api';
+
+const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
 
 interface WinnerPreview {
   fullName: string;
@@ -81,12 +83,25 @@ interface SaleMethodOption {
 
                 <label class="field">
                   <span>Telefono</span>
-                  <input type="tel" formControlName="phone" />
+                  <input
+                    type="tel"
+                    formControlName="phone"
+                    inputmode="numeric"
+                    maxlength="15"
+                    placeholder="+56 9 1234 5678"
+                    (input)="formatEditPhone()"
+                  />
+                  <small class="error" *ngIf="hasEditError('phone', 'required') || hasEditError('phone', 'pattern')">
+                    Ingresa el telefono con formato +56 9 1234 5678.
+                  </small>
                 </label>
 
                 <label class="field">
                   <span>Email opcional</span>
-                  <input type="email" formControlName="email" />
+                  <input type="email" formControlName="email" placeholder="cliente@correo.cl" (blur)="normalizeEditEmail()" />
+                  <small class="error" *ngIf="hasEditError('email', 'email')">
+                    Si ingresas un email, debe tener un formato valido.
+                  </small>
                 </label>
 
                 <label class="field">
@@ -293,12 +308,25 @@ interface SaleMethodOption {
 
               <label class="field">
                 <span>Telefono</span>
-                <input type="tel" formControlName="phone" placeholder="+56 9 1234 5678" />
+                <input
+                  type="tel"
+                  formControlName="phone"
+                  inputmode="numeric"
+                  maxlength="15"
+                  placeholder="+56 9 1234 5678"
+                  (input)="formatCashSalePhone()"
+                />
+                <small class="error" *ngIf="hasCashSaleError('phone', 'required') || hasCashSaleError('phone', 'pattern')">
+                  Ingresa el telefono con formato +56 9 1234 5678.
+                </small>
               </label>
 
               <label class="field">
                 <span>Email opcional</span>
-                <input type="email" formControlName="email" placeholder="cliente@correo.cl" />
+                <input type="email" formControlName="email" placeholder="cliente@correo.cl" (blur)="normalizeCashSaleEmail()" />
+                <small class="error" *ngIf="hasCashSaleError('email', 'email')">
+                  Si ingresas un email, debe tener un formato valido.
+                </small>
               </label>
 
               <label class="field">
@@ -335,6 +363,30 @@ interface SaleMethodOption {
 
             <p class="error server-error" *ngIf="cashSaleMessage()">{{ cashSaleMessage() }}</p>
           </form>
+
+          <section class="seller-recent-sales">
+            <div class="seller-recent-sales__header">
+              <h3>Ultimas 3 ventas registradas</h3>
+              <p class="admin-copy">Se actualizan apenas registras una nueva venta.</p>
+            </div>
+
+            <div class="seller-recent-sales__list" *ngIf="recentSellerOrders().length > 0; else sellerRecentSalesEmpty">
+              <article class="seller-recent-sale" *ngFor="let order of recentSellerOrders()">
+                <div>
+                  <strong>{{ order.participant.fullName }}</strong>
+                  <p>{{ order.order.packageLabel }} · {{ order.order.paymentLabel }}</p>
+                </div>
+                <div class="seller-recent-sale__meta">
+                  <span>{{ order.createdAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+                  <strong>{{ order.order.amount | currency: 'CLP' : 'symbol-narrow' : '1.0-0' : 'es-CL' }}</strong>
+                </div>
+              </article>
+            </div>
+
+            <ng-template #sellerRecentSalesEmpty>
+              <p class="admin-copy seller-recent-sales__empty">Aun no hay ventas manuales para mostrar.</p>
+            </ng-template>
+          </section>
         </section>
       </section>
 
@@ -361,12 +413,25 @@ interface SaleMethodOption {
 
               <label class="field">
                 <span>Telefono</span>
-                <input type="tel" formControlName="phone" placeholder="+56 9 1234 5678" />
+                <input
+                  type="tel"
+                  formControlName="phone"
+                  inputmode="numeric"
+                  maxlength="15"
+                  placeholder="+56 9 1234 5678"
+                  (input)="formatCashSalePhone()"
+                />
+                <small class="error" *ngIf="hasCashSaleError('phone', 'required') || hasCashSaleError('phone', 'pattern')">
+                  Ingresa el telefono con formato +56 9 1234 5678.
+                </small>
               </label>
 
               <label class="field">
                 <span>Email opcional</span>
-                <input type="email" formControlName="email" placeholder="cliente@correo.cl" />
+                <input type="email" formControlName="email" placeholder="cliente@correo.cl" (blur)="normalizeCashSaleEmail()" />
+                <small class="error" *ngIf="hasCashSaleError('email', 'email')">
+                  Si ingresas un email, debe tener un formato valido.
+                </small>
               </label>
 
               <label class="field">
@@ -623,6 +688,9 @@ export class AdminPage implements OnDestroy {
   protected readonly eligiblePaidOrders = computed(() =>
     (this.dashboard()?.orders ?? []).filter((order) => order.status === 'paid' && order.order.ticketNumbers.length > 0),
   );
+  protected readonly recentSellerOrders = computed(() =>
+    (this.dashboard()?.orders ?? []).filter((order) => order.channel === 'cash').slice(0, 3),
+  );
   protected readonly eligiblePaidTicketsCount = computed(() =>
     this.eligiblePaidOrders().reduce((sum, order) => sum + order.order.participations, 0),
   );
@@ -635,7 +703,7 @@ export class AdminPage implements OnDestroy {
 
   protected readonly cashSaleForm = this.formBuilder.nonNullable.group({
     fullName: ['', [Validators.required, Validators.minLength(3)]],
-    phone: ['', Validators.required],
+    phone: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
     email: ['', Validators.email],
     packageId: ['', Validators.required],
     saleMethod: ['cash' as ManualSaleMethod, Validators.required],
@@ -650,7 +718,7 @@ export class AdminPage implements OnDestroy {
 
   protected readonly editForm = this.formBuilder.nonNullable.group({
     fullName: ['', [Validators.required, Validators.minLength(3)]],
-    phone: ['', Validators.required],
+    phone: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
     email: ['', Validators.email],
     packageId: ['', Validators.required],
     status: ['paid' as 'paid' | 'pending_payment', Validators.required],
@@ -700,6 +768,9 @@ export class AdminPage implements OnDestroy {
   }
 
   protected submitCashSale() {
+    this.formatCashSalePhone();
+    this.normalizeCashSaleEmail();
+
     if (this.cashSaleForm.invalid) {
       this.cashSaleForm.markAllAsTouched();
       this.cashSaleMessage.set('Completa los datos obligatorios de la venta.');
@@ -711,7 +782,8 @@ export class AdminPage implements OnDestroy {
 
     this.adminApi.createCashSale(this.cashSaleForm.getRawValue()).subscribe({
       next: (response) => {
-        this.cashSaleMessage.set(response.message);
+        this.cashSaleMessage.set('');
+        this.showToast('success', 'Venta registrada', response.message);
         this.cashSaleForm.reset({
           fullName: '',
           phone: '',
@@ -742,6 +814,9 @@ export class AdminPage implements OnDestroy {
     if (!currentOrder) {
       return;
     }
+
+    this.formatEditPhone();
+    this.normalizeEditEmail();
 
     if (this.editForm.invalid) {
       this.editForm.markAllAsTouched();
@@ -780,6 +855,8 @@ export class AdminPage implements OnDestroy {
       status: order.status,
       notes: order.notes ?? '',
     });
+    this.formatEditPhone();
+    this.normalizeEditEmail();
   }
 
   protected cancelEdit() {
@@ -992,6 +1069,32 @@ export class AdminPage implements OnDestroy {
     this.isCreateModalOpen.set(false);
   }
 
+  protected hasCashSaleError(controlName: keyof typeof this.cashSaleForm.controls, errorName: string) {
+    const control = this.cashSaleForm.controls[controlName];
+    return control.touched && control.hasError(errorName);
+  }
+
+  protected hasEditError(controlName: keyof typeof this.editForm.controls, errorName: string) {
+    const control = this.editForm.controls[controlName];
+    return control.touched && control.hasError(errorName);
+  }
+
+  protected formatCashSalePhone() {
+    this.applyPhoneMask(this.cashSaleForm.controls.phone);
+  }
+
+  protected formatEditPhone() {
+    this.applyPhoneMask(this.editForm.controls.phone);
+  }
+
+  protected normalizeCashSaleEmail() {
+    this.normalizeEmailControl(this.cashSaleForm.controls.email);
+  }
+
+  protected normalizeEditEmail() {
+    this.normalizeEmailControl(this.editForm.controls.email);
+  }
+
   private syncReceiptReferenceValidator(method: ManualSaleMethod) {
     const control = this.cashSaleForm.controls.receiptReference;
     const requiresReference = method === 'debit' || method === 'credit';
@@ -1020,12 +1123,6 @@ export class AdminPage implements OnDestroy {
   }
 
   private refreshDashboard() {
-    if (!this.isAdmin()) {
-      this.adminApi.dashboard.set(null);
-      this.currentPage.set(1);
-      return;
-    }
-
     this.adminApi.loadDashboard().subscribe({
       next: () => {
         this.currentPage.set(1);
@@ -1065,6 +1162,55 @@ export class AdminPage implements OnDestroy {
       clearTimeout(this.winnerRevealTimer);
       this.winnerRevealTimer = null;
     }
+  }
+
+  private applyPhoneMask(control: FormControl<string>) {
+    const digits = control.value.replace(/\D/g, '').slice(0, 11);
+
+    if (!digits) {
+      control.setValue('', { emitEvent: false });
+      return;
+    }
+
+    let formatted = '';
+
+    if (digits.startsWith('56')) {
+      const nationalDigits = digits.slice(2);
+      formatted = '+56';
+
+      if (nationalDigits.length > 0) {
+        formatted += ` ${nationalDigits.slice(0, 1)}`;
+      }
+
+      if (nationalDigits.length > 1) {
+        formatted += ` ${nationalDigits.slice(1, 5)}`;
+      }
+
+      if (nationalDigits.length > 5) {
+        formatted += ` ${nationalDigits.slice(5, 9)}`;
+      }
+    } else {
+      const normalizedDigits = digits.startsWith('9') ? digits : `9${digits}`.slice(0, 9);
+      formatted = '+56';
+
+      if (normalizedDigits.length > 0) {
+        formatted += ` ${normalizedDigits.slice(0, 1)}`;
+      }
+
+      if (normalizedDigits.length > 1) {
+        formatted += ` ${normalizedDigits.slice(1, 5)}`;
+      }
+
+      if (normalizedDigits.length > 5) {
+        formatted += ` ${normalizedDigits.slice(5, 9)}`;
+      }
+    }
+
+    control.setValue(formatted, { emitEvent: false });
+  }
+
+  private normalizeEmailControl(control: FormControl<string>) {
+    control.setValue(control.value.trim().toLowerCase(), { emitEvent: false });
   }
 }
 

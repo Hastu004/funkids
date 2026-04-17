@@ -1278,6 +1278,59 @@ p {
   backdrop-filter: blur(12px);
 }
 
+.seller-recent-sales {
+  margin-top: 1.5rem;
+  padding-top: 1.35rem;
+  border-top: 1px solid rgba(91, 166, 216, 0.14);
+}
+
+.seller-recent-sales__header {
+  margin-bottom: 0.9rem;
+}
+
+.seller-recent-sales__header h3 {
+  margin-bottom: 0.2rem;
+  font-size: 1.15rem;
+}
+
+.seller-recent-sales__list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.seller-recent-sale {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.95rem 1rem;
+  border-radius: 1.1rem;
+  background: rgba(247, 251, 255, 0.88);
+  border: 1px solid rgba(91, 166, 216, 0.14);
+}
+
+.seller-recent-sale p,
+.seller-recent-sale strong,
+.seller-recent-sales__empty {
+  margin: 0;
+}
+
+.seller-recent-sale p {
+  margin-top: 0.18rem;
+  color: #66708f;
+}
+
+.seller-recent-sale__meta {
+  text-align: right;
+}
+
+.seller-recent-sale__meta span {
+  display: block;
+  margin-bottom: 0.22rem;
+  font-size: 0.84rem;
+  color: #66708f;
+}
+
 .admin-header-card {
   display: flex;
   align-items: center;
@@ -1724,6 +1777,15 @@ p {
 
   .admin-header-card__buttons {
     justify-content: flex-start;
+  }
+
+  .seller-recent-sale {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .seller-recent-sale__meta {
+    text-align: left;
   }
 
   .admin-filters {
