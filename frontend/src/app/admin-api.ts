@@ -233,9 +233,9 @@ export class AdminApi {
       );
   }
 
-  deleteLatestWinner() {
+  deleteWinner(winnerId: number) {
     return this.http
-      .delete<AdminDeleteWinnerResponse>(`${apiBaseUrl}/admin/winners/latest`, { headers: this.buildHeaders() })
+      .delete<AdminDeleteWinnerResponse>(`${apiBaseUrl}/admin/winners/${winnerId}`, { headers: this.buildHeaders() })
       .pipe(
         tap((response) => {
           const current = this.dashboard();

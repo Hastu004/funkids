@@ -760,6 +760,46 @@ export async function deleteLatestAdminWinner(request: Request, env: unknown) {
   });
 }
 
+export async function deleteAdminWinnerById(request: Request, winnerId: number, env: unknown) {
+  const dbResult = getDb(env);
+  if ('error' in dbResult) {
+    return dbResult.error;
+  }
+
+  await ensureRaffleWinnerSchema(dbResult.db);
+
+  const config = getAdminConfig(env);
+  if ('error' in config) {
+    return config.error;
+  }
+
+  const auth = await ensureAdminAuthorization(request, config, ['admin']);
+  if ('error' in auth) {
+    return auth.error;
+  }
+
+  if (!Number.isInteger(winnerId) || winnerId <= 0) {
+    return jsonError('El identificador del ganador no es valido.', 400);
+  }
+
+  const winnerToDelete = await dbResult.db
+    .prepare('SELECT * FROM raffle_winners WHERE id = ? LIMIT 1')
+    .bind(winnerId)
+    .first<RaffleWinnerRow>();
+
+  if (!winnerToDelete) {
+    return jsonError('No encontramos el ganador que intentas eliminar.', 404);
+  }
+
+  await dbResult.db.prepare('DELETE FROM raffle_winners WHERE id = ?').bind(winnerId).run();
+  const nextLatestWinner = await findLatestRaffleWinner(dbResult.db);
+
+  return Response.json({
+    message: `Registro del ganador ${winnerToDelete.full_name} eliminado correctamente.`,
+    latestWinner: nextLatestWinner,
+  });
+}
+
 export async function createAdminCashSale(request: Request, payload: AdminCashSalePayload, env: unknown) {
   if (isSalesClosed()) {
     return jsonError(SALES_CLOSE_MESSAGE, 403);

@@ -170,7 +170,7 @@ interface SaleMethodOption {
                   <button
                     class="button secondary admin-button danger"
                     type="button"
-                    (click)="deleteLatestWinner(latestWinner.fullName)"
+                    (click)="deleteWinner(latestWinner)"
                     [disabled]="isDeletingWinner()"
                   >
                     {{ isDeletingWinner() ? 'Eliminando...' : 'Eliminar ganador' }}
@@ -1032,21 +1032,24 @@ export class AdminPage implements OnDestroy {
     this.startWinnerDraw();
   }
 
-  protected deleteLatestWinner(fullName: string) {
+  protected deleteWinner(winner: AdminRaffleWinner) {
     if (!this.isAdmin() || this.isDeletingWinner()) {
       return;
     }
 
     const shouldDelete =
-      typeof window === 'undefined' ? true : window.confirm(`Eliminar el registro del ganador ${fullName}?`);
+      typeof window === 'undefined' ? true : window.confirm(`Eliminar el registro del ganador ${winner.fullName}?`);
     if (!shouldDelete) {
       return;
     }
 
     this.isDeletingWinner.set(true);
-    this.adminApi.deleteLatestWinner().subscribe({
+    this.adminApi.deleteWinner(winner.id).subscribe({
       next: (response) => {
         this.isDeletingWinner.set(false);
+        if (this.revealedWinner()?.id === winner.id) {
+          this.revealedWinner.set(null);
+        }
         this.showToast('success', 'Ganador eliminado', response.message);
       },
       error: (error) => {
