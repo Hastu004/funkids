@@ -28,8 +28,6 @@ const SALES_CLOSE_MESSAGE = 'La venta de tickets finalizo el 31 de julio de 2026
 
       <nav class="mobile-home-nav" aria-label="Navegacion rapida del inicio">
         <a href="#checkout">Comprar</a>
-        <a href="#galeria">Fotos</a>
-        <a href="#como-participar">Como participar</a>
       </nav>
 
       <section class="page-section checkout-layout" id="galeria">
