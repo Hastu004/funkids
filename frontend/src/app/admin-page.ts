@@ -613,6 +613,7 @@ export class AdminPage implements OnDestroy {
   protected readonly statusFilter = signal<'all' | 'paid' | 'pending_payment'>('all');
   protected readonly currentPage = signal(1);
   protected readonly editingOrder = signal<AdminOrder | null>(null);
+  protected readonly recentSellerOrdersLocal = signal<AdminOrder[]>([]);
   protected readonly isCreateModalOpen = signal(false);
   protected readonly isDrawModalOpen = signal(false);
   protected readonly isLoggingIn = signal(false);
@@ -688,9 +689,14 @@ export class AdminPage implements OnDestroy {
   protected readonly eligiblePaidOrders = computed(() =>
     (this.dashboard()?.orders ?? []).filter((order) => order.status === 'paid' && order.order.ticketNumbers.length > 0),
   );
-  protected readonly recentSellerOrders = computed(() =>
-    (this.dashboard()?.orders ?? []).filter((order) => order.channel === 'cash').slice(0, 3),
-  );
+  protected readonly recentSellerOrders = computed(() => {
+    const dashboardOrders = (this.dashboard()?.orders ?? []).filter((order) => order.channel === 'cash').slice(0, 3);
+    if (dashboardOrders.length > 0) {
+      return dashboardOrders;
+    }
+
+    return this.recentSellerOrdersLocal().slice(0, 3);
+  });
   protected readonly eligiblePaidTicketsCount = computed(() =>
     this.eligiblePaidOrders().reduce((sum, order) => sum + order.order.participations, 0),
   );
@@ -784,6 +790,9 @@ export class AdminPage implements OnDestroy {
       next: (response) => {
         this.cashSaleMessage.set('');
         this.showToast('success', 'Venta registrada', response.message);
+        this.recentSellerOrdersLocal.update((orders) =>
+          [response.order, ...orders.filter((order) => order.id !== response.order.id)].slice(0, 3),
+        );
         this.cashSaleForm.reset({
           fullName: '',
           phone: '',
@@ -797,6 +806,7 @@ export class AdminPage implements OnDestroy {
         this.currentPage.set(1);
         this.isCreateModalOpen.set(false);
         this.isSavingCashSale.set(false);
+        this.refreshDashboard();
       },
       error: (error) => {
         this.cashSaleMessage.set(error.error?.message ?? 'No fue posible registrar la venta.');
@@ -1053,6 +1063,7 @@ export class AdminPage implements OnDestroy {
   }
 
   protected logout() {
+    this.recentSellerOrdersLocal.set([]);
     this.adminApi.logout();
   }
 
