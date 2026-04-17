@@ -59,8 +59,8 @@ interface SaleMethodOption {
             <strong>{{ dashboardData.stats.totalRevenue | currency: 'CLP' : 'symbol-narrow' : '1.0-0' : 'es-CL' }}</strong>
           </article>
           <article class="meta-card">
-            <span>Participaciones</span>
-            <strong>{{ dashboardData.stats.totalParticipations }}</strong>
+            <span>Participaciones habilitadas</span>
+            <strong>{{ eligiblePaidTicketsCount() }}</strong>
           </article>
           <article class="meta-card">
             <span>Ventas manuales</span>
@@ -112,13 +112,12 @@ interface SaleMethodOption {
                   </select>
                 </label>
 
-                <label class="field">
-                  <span>Estado</span>
-                  <select formControlName="status">
-                    <option value="paid">Pagado</option>
-                    <option value="pending_payment">Pendiente</option>
-                  </select>
-                </label>
+              <label class="field">
+                <span>Estado</span>
+                <select formControlName="status">
+                  <option value="paid">Pagado</option>
+                </select>
+              </label>
 
                 <label class="field">
                   <span>Nota interna</span>
@@ -195,7 +194,6 @@ interface SaleMethodOption {
                 <select [value]="statusFilter()" (change)="setStatus(($any($event.target).value ?? 'all').toString())">
                   <option value="all">Todos</option>
                   <option value="paid">Pagado</option>
-                  <option value="pending_payment">Pendiente</option>
                 </select>
               </label>
             </div>
@@ -610,7 +608,7 @@ export class AdminPage implements OnDestroy {
   protected readonly landing = computed(() => this.landingApi.landing());
   protected readonly searchTerm = signal('');
   protected readonly channelFilter = signal<'all' | 'webpay' | 'cash'>('all');
-  protected readonly statusFilter = signal<'all' | 'paid' | 'pending_payment'>('all');
+  protected readonly statusFilter = signal<'all' | 'paid'>('all');
   protected readonly currentPage = signal(1);
   protected readonly editingOrder = signal<AdminOrder | null>(null);
   protected readonly recentSellerOrdersLocal = signal<AdminOrder[]>([]);
@@ -698,7 +696,7 @@ export class AdminPage implements OnDestroy {
     return this.recentSellerOrdersLocal().slice(0, 3);
   });
   protected readonly eligiblePaidTicketsCount = computed(() =>
-    this.eligiblePaidOrders().reduce((sum, order) => sum + order.order.participations, 0),
+    this.eligiblePaidOrders().reduce((sum, order) => sum + order.order.ticketNumbers.length, 0),
   );
   protected readonly eligiblePaidCustomersCount = computed(() => this.eligiblePaidOrders().length);
 
@@ -727,7 +725,7 @@ export class AdminPage implements OnDestroy {
     phone: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
     email: ['', Validators.email],
     packageId: ['', Validators.required],
-    status: ['paid' as 'paid' | 'pending_payment', Validators.required],
+    status: ['paid' as 'paid', Validators.required],
     notes: [''],
   });
 
@@ -862,7 +860,7 @@ export class AdminPage implements OnDestroy {
       phone: order.participant.phone ?? '',
       email: order.participant.email ?? '',
       packageId: order.order.packageId,
-      status: order.status,
+      status: 'paid',
       notes: order.notes ?? '',
     });
     this.formatEditPhone();
@@ -1034,7 +1032,7 @@ export class AdminPage implements OnDestroy {
   }
 
   protected setStatus(value: string) {
-    this.statusFilter.set(value === 'paid' || value === 'pending_payment' ? value : 'all');
+    this.statusFilter.set(value === 'paid' ? value : 'all');
     this.currentPage.set(1);
   }
 

@@ -643,14 +643,16 @@ export async function getAdminOrders(request: Request, env: unknown) {
       return jsonError(message, 500);
     }
   }
+  await cleanupPendingOrdersWithoutTickets(dbResult.db);
   const orders =
     auth.profile.role === 'seller'
       ? await fetchOrders(dbResult.db, {
           channel: 'cash',
           creatorEmail: auth.profile.email,
+          status: 'paid',
           limit: 3,
         })
-      : await fetchOrders(dbResult.db);
+      : await fetchOrders(dbResult.db, { status: 'paid' });
   const latestWinner = await findLatestRaffleWinner(dbResult.db);
 
   return Response.json({
@@ -689,8 +691,8 @@ export async function drawAdminWinner(request: Request, env: unknown) {
     const message = error instanceof Error ? error.message : 'No fue posible sincronizar los tickets del sorteo.';
     return jsonError(message, 500);
   }
-  const orders = await fetchOrders(dbResult.db);
-  const eligibleOrders = orders.filter((order) => order.status === 'paid' && order.order.ticketNumbers.length > 0);
+  const orders = await fetchOrders(dbResult.db, { status: 'paid' });
+  const eligibleOrders = orders.filter((order) => order.order.ticketNumbers.length > 0);
 
   if (eligibleOrders.length === 0) {
     return jsonError('No hay compras pagadas con tickets disponibles para realizar el sorteo.', 400);
@@ -813,7 +815,7 @@ export async function createAdminCashSale(request: Request, payload: AdminCashSa
       const message = error instanceof Error ? error.message : 'No fue posible sincronizar los tickets del sorteo.';
       return jsonError(message, 500);
     }
-    const orders = await fetchOrders(dbResult.db);
+    const orders = await fetchOrders(dbResult.db, { status: 'paid' });
     return Response.json({
       message: 'Venta registrada correctamente.',
       order: record,
@@ -920,7 +922,7 @@ export async function updateAdminOrder(
 
   const updatedOrder: OrderRecord = {
     ...currentOrder,
-    status: payload.status === 'pending_payment' ? 'pending_payment' : 'paid',
+    status: 'paid',
     notes: payload.notes?.trim() || null,
     participant: {
       ...currentOrder.participant,
@@ -945,7 +947,7 @@ export async function updateAdminOrder(
     const message = error instanceof Error ? error.message : 'No fue posible sincronizar los tickets del sorteo.';
     return jsonError(message, 500);
   }
-  const orders = await fetchOrders(dbResult.db);
+  const orders = await fetchOrders(dbResult.db, { status: 'paid' });
 
   return Response.json({
     message: 'Registro actualizado correctamente.',
@@ -983,7 +985,7 @@ export async function deleteAdminOrder(request: Request, orderId: string, env: u
     dbResult.db.prepare('DELETE FROM orders WHERE id = ?').bind(orderId),
   ]);
 
-  const orders = await fetchOrders(dbResult.db);
+  const orders = await fetchOrders(dbResult.db, { status: 'paid' });
 
   return Response.json({
     message: 'Registro eliminado correctamente.',
@@ -1406,7 +1408,7 @@ async function ensureAdminAuthorization(request: Request, config: AdminConfig, a
 
 async function fetchOrders(
   db: D1Database,
-  options?: { channel?: SaleChannel; creatorEmail?: string; limit?: number },
+  options?: { channel?: SaleChannel; creatorEmail?: string; status?: 'paid' | 'pending_payment'; limit?: number },
 ) {
   await ensureOrdersSchema(db);
 
@@ -1421,6 +1423,11 @@ async function fetchOrders(
   if (options?.creatorEmail) {
     conditions.push('creator_email = ?');
     bindings.push(options.creatorEmail);
+  }
+
+  if (options?.status) {
+    conditions.push('status = ?');
+    bindings.push(options.status);
   }
 
   let query = 'SELECT * FROM orders';
@@ -1456,6 +1463,31 @@ async function fetchOrders(
 
     return mapOrderRow(row, ticketNumbers);
   });
+}
+
+async function cleanupPendingOrdersWithoutTickets(db: D1Database) {
+  await ensureOrdersSchema(db);
+
+  await db.batch([
+    db.prepare(`
+      DELETE FROM webpay_transactions
+      WHERE order_id IN (
+        SELECT id
+        FROM orders
+        WHERE status = 'pending_payment'
+          AND NOT EXISTS (
+            SELECT 1 FROM order_tickets WHERE order_tickets.order_id = orders.id
+          )
+      )
+    `),
+    db.prepare(`
+      DELETE FROM orders
+      WHERE status = 'pending_payment'
+        AND NOT EXISTS (
+          SELECT 1 FROM order_tickets WHERE order_tickets.order_id = orders.id
+        )
+    `),
+  ]);
 }
 
 async function findOrderById(db: D1Database, orderId: string) {
