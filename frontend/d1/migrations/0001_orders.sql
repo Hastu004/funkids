@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS orders (
   status TEXT NOT NULL CHECK (status IN ('paid', 'pending_payment')),
   source_label TEXT NOT NULL,
   notes TEXT,
+  creator_email TEXT,
   full_name TEXT NOT NULL,
   email TEXT,
   phone TEXT,
@@ -29,5 +30,6 @@ CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_channel ON orders(channel);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_email ON orders(email);
+CREATE INDEX IF NOT EXISTS idx_orders_creator_email ON orders(creator_email);
 CREATE INDEX IF NOT EXISTS idx_order_tickets_order_id ON order_tickets(order_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_order_tickets_ticket_number ON order_tickets(ticket_number);

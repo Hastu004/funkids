@@ -132,6 +132,7 @@ interface OrderRow {
   created_at: string;
   channel: SaleChannel;
   status: 'paid' | 'pending_payment';
+  creator_email: string | null;
   source_label: string;
   notes: string | null;
   full_name: string;
@@ -459,6 +460,7 @@ export async function createPurchase(payload: PurchasePayload, env: unknown, req
     return dbResult.error;
   }
 
+  await ensureOrdersSchema(dbResult.db);
   await ensureWebpaySchema(dbResult.db);
 
   const webpayConfig = getTransbankConfig(env, request);
@@ -562,7 +564,7 @@ export async function createPurchase(payload: PurchasePayload, env: unknown, req
   }
 
   try {
-    await insertOrder(dbResult.db, record);
+    await insertOrder(dbResult.db, record, null);
     await insertWebpayTransaction(dbResult.db, webpayTransaction);
   } catch (error) {
     await dbResult.db.batch([
@@ -620,6 +622,7 @@ export async function getAdminOrders(request: Request, env: unknown) {
     return dbResult.error;
   }
 
+  await ensureOrdersSchema(dbResult.db);
   await ensureRaffleWinnerSchema(dbResult.db);
 
   const config = getAdminConfig(env);
@@ -638,10 +641,15 @@ export async function getAdminOrders(request: Request, env: unknown) {
     const message = error instanceof Error ? error.message : 'No fue posible sincronizar los tickets del sorteo.';
     return jsonError(message, 500);
   }
-  const orders = await fetchOrders(dbResult.db);
+  const orders =
+    auth.profile.role === 'seller'
+      ? await fetchOrders(dbResult.db, {
+          channel: 'cash',
+          creatorEmail: auth.profile.email,
+          limit: 3,
+        })
+      : await fetchOrders(dbResult.db);
   const latestWinner = await findLatestRaffleWinner(dbResult.db);
-  const visibleOrders =
-    auth.profile.role === 'seller' ? orders.filter((order) => order.channel === 'cash').slice(0, 3) : orders;
 
   return Response.json({
     profile: {
@@ -649,8 +657,8 @@ export async function getAdminOrders(request: Request, env: unknown) {
       email: auth.profile.email,
       role: auth.profile.role,
     },
-    stats: buildDashboardStats(visibleOrders),
-    orders: visibleOrders,
+    stats: buildDashboardStats(orders),
+    orders,
     latestWinner,
   });
 }
@@ -726,6 +734,7 @@ export async function createAdminCashSale(request: Request, payload: AdminCashSa
     return dbResult.error;
   }
 
+  await ensureOrdersSchema(dbResult.db);
   const config = getAdminConfig(env);
   if ('error' in config) {
     return config.error;
@@ -792,7 +801,7 @@ export async function createAdminCashSale(request: Request, payload: AdminCashSa
     notes: buildManualSaleNotes(saleMethod, payload.notes?.trim() ?? '', requiresReceiptReference ? receiptReference : ''),
   });
 
-  await insertOrder(dbResult.db, record);
+  await insertOrder(dbResult.db, record, auth.profile.email);
   await attemptAutomaticOrderEmails(dbResult.db, env, record.id);
 
   if (auth.profile.role === 'admin') {
@@ -1180,6 +1189,46 @@ async function ensureWebpaySchema(db: D1Database) {
   ]);
 }
 
+async function ensureOrdersSchema(db: D1Database) {
+  await db.batch([
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS orders (
+        id TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL,
+        channel TEXT NOT NULL CHECK (channel IN ('webpay', 'cash')),
+        status TEXT NOT NULL CHECK (status IN ('paid', 'pending_payment')),
+        source_label TEXT NOT NULL,
+        notes TEXT,
+        creator_email TEXT,
+        full_name TEXT NOT NULL,
+        email TEXT,
+        phone TEXT,
+        wants_account INTEGER NOT NULL DEFAULT 0,
+        package_id TEXT NOT NULL,
+        package_label TEXT NOT NULL,
+        participations INTEGER NOT NULL,
+        amount INTEGER NOT NULL,
+        payment_method TEXT NOT NULL DEFAULT 'transbank',
+        payment_label TEXT NOT NULL
+      )
+    `),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_channel ON orders(channel)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_email ON orders(email)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_creator_email ON orders(creator_email)'),
+  ]);
+
+  const tableInfo = await db.prepare('PRAGMA table_info(orders)').all<{ name: string }>();
+  const columnNames = new Set((tableInfo.results ?? []).map((column) => column.name));
+
+  if (!columnNames.has('creator_email')) {
+    await db.prepare('ALTER TABLE orders ADD COLUMN creator_email TEXT').run();
+  }
+
+  await db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_creator_email ON orders(creator_email)').run();
+}
+
 async function ensureReceiptSchema(db: D1Database) {
   await db.batch([
     db.prepare(`
@@ -1354,8 +1403,37 @@ async function ensureAdminAuthorization(request: Request, config: AdminConfig, a
   return { profile };
 }
 
-async function fetchOrders(db: D1Database) {
-  const orderRowsResult = await db.prepare('SELECT * FROM orders ORDER BY datetime(created_at) DESC').all<OrderRow>();
+async function fetchOrders(
+  db: D1Database,
+  options?: { channel?: SaleChannel; creatorEmail?: string; limit?: number },
+) {
+  await ensureOrdersSchema(db);
+
+  const conditions: string[] = [];
+  const bindings: Array<string | number> = [];
+
+  if (options?.channel) {
+    conditions.push('channel = ?');
+    bindings.push(options.channel);
+  }
+
+  if (options?.creatorEmail) {
+    conditions.push('creator_email = ?');
+    bindings.push(options.creatorEmail);
+  }
+
+  let query = 'SELECT * FROM orders';
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(' AND ')}`;
+  }
+  query += ' ORDER BY datetime(created_at) DESC';
+
+  if (options?.limit && options.limit > 0) {
+    query += ' LIMIT ?';
+    bindings.push(options.limit);
+  }
+
+  const orderRowsResult = await db.prepare(query).bind(...bindings).all<OrderRow>();
   const rows = orderRowsResult.results ?? [];
 
   if (rows.length === 0) {
@@ -1378,6 +1456,8 @@ async function fetchOrders(db: D1Database) {
 }
 
 async function findOrderById(db: D1Database, orderId: string) {
+  await ensureOrdersSchema(db);
+
   const rowResult = await db.prepare('SELECT * FROM orders WHERE id = ? LIMIT 1').bind(orderId).first<OrderRow>();
   if (!rowResult) {
     return null;
@@ -1510,17 +1590,19 @@ async function updateWebpayTransactionState(
     .run();
 }
 
-async function insertOrder(db: D1Database, order: OrderRecord) {
+async function insertOrder(db: D1Database, order: OrderRecord, creatorEmail: string | null = null) {
+  await ensureOrdersSchema(db);
+
   const statements = [
     db
       .prepare(
         `
           INSERT INTO orders (
-            id, created_at, channel, status, source_label, notes,
+            id, created_at, channel, status, source_label, notes, creator_email,
             full_name, email, phone, wants_account,
             package_id, package_label, participations, amount,
             payment_method, payment_label
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
       )
       .bind(
@@ -1530,6 +1612,7 @@ async function insertOrder(db: D1Database, order: OrderRecord) {
         order.status,
         order.sourceLabel,
         order.notes,
+        creatorEmail,
         order.participant.fullName,
         order.participant.email,
         order.participant.phone,
@@ -1550,6 +1633,8 @@ async function insertOrder(db: D1Database, order: OrderRecord) {
 }
 
 async function replaceOrder(db: D1Database, order: OrderRecord) {
+  await ensureOrdersSchema(db);
+
   await db.batch([
     db
       .prepare(
