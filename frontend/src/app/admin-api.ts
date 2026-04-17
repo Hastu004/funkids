@@ -76,6 +76,11 @@ export interface AdminDrawWinnerResponse {
   eligibleCustomers: number;
 }
 
+export interface AdminDeleteWinnerResponse {
+  message: string;
+  latestWinner: AdminRaffleWinner | null;
+}
+
 export interface AdminDashboardResponse {
   profile: AdminProfile;
   stats: {
@@ -223,6 +228,24 @@ export class AdminApi {
           this.dashboard.set({
             ...current,
             latestWinner: response.winner,
+          });
+        }),
+      );
+  }
+
+  deleteLatestWinner() {
+    return this.http
+      .delete<AdminDeleteWinnerResponse>(`${apiBaseUrl}/admin/winners/latest`, { headers: this.buildHeaders() })
+      .pipe(
+        tap((response) => {
+          const current = this.dashboard();
+          if (!current) {
+            return;
+          }
+
+          this.dashboard.set({
+            ...current,
+            latestWinner: response.latestWinner,
           });
         }),
       );

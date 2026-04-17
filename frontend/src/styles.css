@@ -1482,6 +1482,10 @@ p {
   color: var(--fk-sky-deep);
 }
 
+.admin-winner-card__actions {
+  margin-top: 0.35rem;
+}
+
 .admin-filters {
   display: grid;
   grid-template-columns: minmax(0, 1.7fr) minmax(150px, 190px) minmax(150px, 190px);

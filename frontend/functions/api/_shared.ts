@@ -728,6 +728,38 @@ export async function drawAdminWinner(request: Request, env: unknown) {
   });
 }
 
+export async function deleteLatestAdminWinner(request: Request, env: unknown) {
+  const dbResult = getDb(env);
+  if ('error' in dbResult) {
+    return dbResult.error;
+  }
+
+  await ensureRaffleWinnerSchema(dbResult.db);
+
+  const config = getAdminConfig(env);
+  if ('error' in config) {
+    return config.error;
+  }
+
+  const auth = await ensureAdminAuthorization(request, config, ['admin']);
+  if ('error' in auth) {
+    return auth.error;
+  }
+
+  const latestWinner = await findLatestRaffleWinner(dbResult.db);
+  if (!latestWinner) {
+    return jsonError('No hay ganadores registrados para eliminar.', 404);
+  }
+
+  await dbResult.db.prepare('DELETE FROM raffle_winners WHERE id = ?').bind(latestWinner.id).run();
+  const nextLatestWinner = await findLatestRaffleWinner(dbResult.db);
+
+  return Response.json({
+    message: `Registro del ganador ${latestWinner.fullName} eliminado correctamente.`,
+    latestWinner: nextLatestWinner,
+  });
+}
+
 export async function createAdminCashSale(request: Request, payload: AdminCashSalePayload, env: unknown) {
   if (isSalesClosed()) {
     return jsonError(SALES_CLOSE_MESSAGE, 403);

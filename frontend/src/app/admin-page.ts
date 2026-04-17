@@ -166,6 +166,16 @@ interface SaleMethodOption {
               <div class="admin-winner-card__meta">
                 <span>{{ latestWinner.createdAt | date: 'dd/MM/yyyy HH:mm' }}</span>
                 <strong>{{ latestWinner.amount | currency: 'CLP' : 'symbol-narrow' : '1.0-0' : 'es-CL' }}</strong>
+                <div class="admin-winner-card__actions">
+                  <button
+                    class="button secondary admin-button danger"
+                    type="button"
+                    (click)="deleteLatestWinner(latestWinner.fullName)"
+                    [disabled]="isDeletingWinner()"
+                  >
+                    {{ isDeletingWinner() ? 'Eliminando...' : 'Eliminar ganador' }}
+                  </button>
+                </div>
               </div>
             </article>
 
@@ -618,6 +628,7 @@ export class AdminPage implements OnDestroy {
   protected readonly isSavingCashSale = signal(false);
   protected readonly isUpdatingOrder = signal(false);
   protected readonly isDrawingWinner = signal(false);
+  protected readonly isDeletingWinner = signal(false);
   protected readonly resendingEmailOrderId = signal<string | null>(null);
   protected readonly loginError = signal('');
   protected readonly cashSaleMessage = signal('');
@@ -1019,6 +1030,30 @@ export class AdminPage implements OnDestroy {
 
     this.revealedWinner.set(null);
     this.startWinnerDraw();
+  }
+
+  protected deleteLatestWinner(fullName: string) {
+    if (!this.isAdmin() || this.isDeletingWinner()) {
+      return;
+    }
+
+    const shouldDelete =
+      typeof window === 'undefined' ? true : window.confirm(`Eliminar el registro del ganador ${fullName}?`);
+    if (!shouldDelete) {
+      return;
+    }
+
+    this.isDeletingWinner.set(true);
+    this.adminApi.deleteLatestWinner().subscribe({
+      next: (response) => {
+        this.isDeletingWinner.set(false);
+        this.showToast('success', 'Ganador eliminado', response.message);
+      },
+      error: (error) => {
+        this.isDeletingWinner.set(false);
+        this.showToast('error', 'No se pudo eliminar', error.error?.message ?? 'No fue posible eliminar el ganador.');
+      },
+    });
   }
 
   protected setSearch(value: string) {
