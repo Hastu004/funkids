@@ -635,11 +635,13 @@ export async function getAdminOrders(request: Request, env: unknown) {
     return auth.error;
   }
 
-  try {
-    await ensurePaidOrderTicketsConsistency(dbResult.db);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'No fue posible sincronizar los tickets del sorteo.';
-    return jsonError(message, 500);
+  if (auth.profile.role === 'admin') {
+    try {
+      await ensurePaidOrderTicketsConsistency(dbResult.db);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No fue posible sincronizar los tickets del sorteo.';
+      return jsonError(message, 500);
+    }
   }
   const orders =
     auth.profile.role === 'seller'

@@ -1127,9 +1127,18 @@ export class AdminPage implements OnDestroy {
       next: () => {
         this.currentPage.set(1);
       },
-      error: () => {
-        this.adminApi.logout();
-        this.loginError.set('La sesion expiro. Vuelve a ingresar.');
+      error: (error) => {
+        const status = Number(error?.status ?? 0);
+        const message = error?.error?.message ?? 'No fue posible cargar el panel. Intenta nuevamente.';
+
+        if (status === 401 || status === 403) {
+          this.adminApi.logout();
+          this.loginError.set('La sesion expiro. Vuelve a ingresar.');
+          return;
+        }
+
+        this.showToast('error', 'No se pudo cargar el panel', message);
+        this.loginError.set(message);
       },
     });
   }
