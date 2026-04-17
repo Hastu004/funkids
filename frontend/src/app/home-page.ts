@@ -232,6 +232,22 @@ export class HomePage {
 
   protected readonly galleryMoments = [
     {
+      src: '/gallery/funkids-galeria-05.jpeg',
+      alt: 'Foto de evento FunKids 5.',
+    },
+    {
+      src: '/gallery/funkids-galeria-06.jpeg',
+      alt: 'Foto de evento FunKids 6.',
+    },
+    {
+      src: '/gallery/funkids-galeria-07.jpeg',
+      alt: 'Foto de evento FunKids 7.',
+    },
+    {
+      src: '/gallery/funkids-galeria-08.jpeg',
+      alt: 'Foto de evento FunKids 8.',
+    },
+    {
       src: '/gallery/funkids-galeria-04.jpeg',
       alt: 'Foto de evento FunKids 1.',
     },
