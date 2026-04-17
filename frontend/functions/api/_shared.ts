@@ -1218,7 +1218,6 @@ async function ensureOrdersSchema(db: D1Database) {
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_channel ON orders(channel)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_email ON orders(email)'),
-    db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_creator_email ON orders(creator_email)'),
   ]);
 
   const tableInfo = await db.prepare('PRAGMA table_info(orders)').all<{ name: string }>();
@@ -1435,7 +1434,9 @@ async function fetchOrders(
     bindings.push(options.limit);
   }
 
-  const orderRowsResult = await db.prepare(query).bind(...bindings).all<OrderRow>();
+  const statement = db.prepare(query);
+  const orderRowsResult =
+    bindings.length > 0 ? await statement.bind(...bindings).all<OrderRow>() : await statement.all<OrderRow>();
   const rows = orderRowsResult.results ?? [];
 
   if (rows.length === 0) {
