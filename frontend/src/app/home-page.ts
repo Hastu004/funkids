@@ -26,10 +26,6 @@ const SALES_CLOSE_MESSAGE = 'La venta de tickets finalizo el 31 de julio de 2026
         </article>
       </section>
 
-      <nav class="mobile-home-nav" aria-label="Navegacion rapida del inicio">
-        <a href="#checkout">Comprar</a>
-      </nav>
-
       <section class="page-section checkout-layout" id="galeria">
         <aside class="spotlight-card">
           <h2>Asi se ve la experiencia que puedes ganar.</h2>
@@ -51,6 +47,10 @@ const SALES_CLOSE_MESSAGE = 'La venta de tickets finalizo el 31 de julio de 2026
           </div>
           <a class="button primary" href="#checkout">Ir al checkout</a>
         </aside>
+
+        <nav class="mobile-home-nav" aria-label="Navegacion rapida del inicio">
+          <a href="#checkout">Comprar</a>
+        </nav>
 
         <aside class="purchase-card" id="checkout">
           <div class="purchase-card__header">

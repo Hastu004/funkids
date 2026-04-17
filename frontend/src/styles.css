@@ -1842,12 +1842,16 @@ p {
     grid-template-columns: 1fr;
   }
 
-  .checkout-layout .purchase-card {
+  .checkout-layout .spotlight-card {
     order: 1;
   }
 
-  .checkout-layout .spotlight-card {
+  .checkout-layout .mobile-home-nav {
     order: 2;
+  }
+
+  .checkout-layout .purchase-card {
+    order: 3;
   }
 
   .prize-items {

@@ -538,11 +538,11 @@ interface SaleMethodOption {
               <dl class="winner-reveal-grid">
                 <div>
                   <dt>Email</dt>
-                  <dd>{{ winner.email || 'Sin email' }}</dd>
+                  <dd>{{ maskWinnerEmail(winner.email) }}</dd>
                 </div>
                 <div>
                   <dt>Telefono</dt>
-                  <dd>{{ winner.phone || 'Sin telefono' }}</dd>
+                  <dd>{{ maskWinnerPhone(winner.phone) }}</dd>
                 </div>
                 <div>
                   <dt>Modalidad</dt>
@@ -1137,6 +1137,41 @@ export class AdminPage implements OnDestroy {
 
   protected normalizeEditEmail() {
     this.normalizeEmailControl(this.editForm.controls.email);
+  }
+
+  protected maskWinnerEmail(email: string | null) {
+    if (!email) {
+      return 'Sin email';
+    }
+
+    const normalized = email.trim().toLowerCase();
+    const [localRaw, domainRaw] = normalized.split('@');
+    if (!localRaw || !domainRaw) {
+      return 'Email oculto';
+    }
+
+    const localVisible = localRaw.slice(0, 2);
+    const localMasked = '*'.repeat(Math.max(localRaw.length - localVisible.length, 3));
+
+    const [domainName = '', tld = ''] = domainRaw.split('.');
+    const domainVisible = domainName.slice(0, 1);
+    const domainMasked = '*'.repeat(Math.max(domainName.length - domainVisible.length, 3));
+
+    if (!tld) {
+      return `${localVisible}${localMasked}@${domainVisible}${domainMasked}`;
+    }
+
+    return `${localVisible}${localMasked}@${domainVisible}${domainMasked}.${tld}`;
+  }
+
+  protected maskWinnerPhone(phone: string | null) {
+    if (!phone) {
+      return 'Sin telefono';
+    }
+
+    const digits = phone.replace(/\D/g, '');
+    const lastTwoDigits = digits.slice(-2).padStart(2, '*');
+    return `+56 9 **** **${lastTwoDigits}`;
   }
 
   private syncReceiptReferenceValidator(method: ManualSaleMethod) {
