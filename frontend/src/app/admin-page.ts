@@ -633,6 +633,7 @@ export class AdminPage implements OnDestroy {
   protected readonly loginError = signal('');
   protected readonly cashSaleMessage = signal('');
   protected readonly editMessage = signal('');
+  protected readonly selectedSaleMethod = signal<ManualSaleMethod>('cash');
   protected readonly drawWinnerError = signal('');
   protected readonly revealedWinner = signal<AdminRaffleWinner | null>(null);
   protected readonly animatedWinnerPreview = signal<WinnerPreview | null>(null);
@@ -727,7 +728,7 @@ export class AdminPage implements OnDestroy {
   });
 
   protected readonly requiresReceiptReference = computed(() => {
-    const method = this.cashSaleForm.controls.saleMethod.value;
+    const method = this.selectedSaleMethod();
     return method === 'debit' || method === 'credit';
   });
 
@@ -742,8 +743,11 @@ export class AdminPage implements OnDestroy {
 
   constructor() {
     this.landingApi.loadLanding();
-    this.syncReceiptReferenceValidator(this.cashSaleForm.controls.saleMethod.value);
+    const initialMethod = this.cashSaleForm.controls.saleMethod.value;
+    this.selectedSaleMethod.set(initialMethod);
+    this.syncReceiptReferenceValidator(initialMethod);
     this.cashSaleForm.controls.saleMethod.valueChanges.subscribe((method) => {
+      this.selectedSaleMethod.set(method);
       this.syncReceiptReferenceValidator(method);
     });
 
@@ -811,6 +815,7 @@ export class AdminPage implements OnDestroy {
           receiptReference: '',
           notes: '',
         });
+        this.selectedSaleMethod.set('cash');
         this.syncReceiptReferenceValidator('cash');
         this.currentPage.set(1);
         this.isCreateModalOpen.set(false);
