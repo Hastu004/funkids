@@ -12,6 +12,36 @@ funkids/
 └── package.json
 ```
 
+## Cambios recientes (abril 2026)
+
+### Beneficio Transbank
+
+- Solo compras online por Transbank (`channel=webpay` + `paymentMethod=transbank`) tienen beneficio.
+- El beneficio es de `10 minutos gratis` por compra elegible.
+- Se informa en:
+  - pagina de inicio
+  - correo de confirmacion de compra
+
+### Panel admin y vendedor (beneficio)
+
+- Nuevo modulo de gestion en `/admin` para beneficio Transbank.
+- Busqueda por `RUT`, `nombre` o `correo`.
+- Vistas separadas en pestañas:
+  - `Beneficio disponible`
+  - `Beneficio consumido`
+- El consumo del beneficio usa modal de confirmacion (ya no popup nativo del navegador).
+- Al consumir:
+  - se marca `benefit_consumed_at` y `benefit_consumed_by`
+  - se envia correo al cliente
+  - se envia correo a respaldos internos de compras
+
+### Ambientes Cloudflare
+
+- `main` despliega a `Production`.
+- `dev` despliega a `Preview` (desarrollo).
+- En `Preview`, Transbank se fuerza a `integration`.
+- En `Production`, Transbank usa credenciales reales (`production`).
+
 ## Desarrollo local
 
 Este proyecto usa API serverless en `frontend/functions/`.
@@ -174,6 +204,53 @@ La configuracion de D1 se toma de `frontend/wrangler.toml` en:
 - `[[env.preview.d1_databases]]`
 - `[[env.production.d1_databases]]`
 
+### Variables obligatorias para login de panel y correos
+
+Estas variables deben existir en `Preview` y en `Production`:
+
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+- `ADMIN_SESSION_SECRET`
+- `SELLER_EMAIL`
+- `SELLER_PASSWORD`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
+- `SMTP_FROM_EMAIL`
+
+Si faltan `ADMIN_*`, el login del panel responde:
+
+- `Configuracion de administrador incompleta en el servidor.`
+
+Comandos utiles para cargar secretos:
+
+```bash
+# Preview (dev)
+npx wrangler pages secret put ADMIN_EMAIL --project-name funkids --env preview
+npx wrangler pages secret put ADMIN_PASSWORD --project-name funkids --env preview
+npx wrangler pages secret put ADMIN_SESSION_SECRET --project-name funkids --env preview
+npx wrangler pages secret put SELLER_EMAIL --project-name funkids --env preview
+npx wrangler pages secret put SELLER_PASSWORD --project-name funkids --env preview
+npx wrangler pages secret put SMTP_HOST --project-name funkids --env preview
+npx wrangler pages secret put SMTP_PORT --project-name funkids --env preview
+npx wrangler pages secret put SMTP_USERNAME --project-name funkids --env preview
+npx wrangler pages secret put SMTP_PASSWORD --project-name funkids --env preview
+npx wrangler pages secret put SMTP_FROM_EMAIL --project-name funkids --env preview
+
+# Production (main)
+npx wrangler pages secret put ADMIN_EMAIL --project-name funkids
+npx wrangler pages secret put ADMIN_PASSWORD --project-name funkids
+npx wrangler pages secret put ADMIN_SESSION_SECRET --project-name funkids
+npx wrangler pages secret put SELLER_EMAIL --project-name funkids
+npx wrangler pages secret put SELLER_PASSWORD --project-name funkids
+npx wrangler pages secret put SMTP_HOST --project-name funkids
+npx wrangler pages secret put SMTP_PORT --project-name funkids
+npx wrangler pages secret put SMTP_USERNAME --project-name funkids
+npx wrangler pages secret put SMTP_PASSWORD --project-name funkids
+npx wrangler pages secret put SMTP_FROM_EMAIL --project-name funkids
+```
+
 ### Migraciones por ambiente
 
 Desde la raiz del proyecto:
@@ -210,6 +287,10 @@ Despues del deploy, revisar esto:
 
 - La landing carga correctamente.
 - Las rutas `/api/landing` y `/api/purchase` responden.
+- El login del panel (`/login`) responde sin error de configuracion.
+- El listado de beneficios muestra:
+  - pestaña `disponible`
+  - pestaña `consumido`
 - No hay errores de build ni de funciones en Cloudflare.
 - Si algo cambio en Cloudflare, documentarlo aqui antes de olvidarlo.
 
@@ -230,7 +311,7 @@ npm run build:frontend
 
 ## Siguiente paso recomendado
 
-Para produccion real, falta conectar los endpoints `/api/purchase` a las APIs de:
+Para evolucionar a futuro:
 
-- `Transbank`
-- `Khipu`
+- Mantener monitoreo de correo transaccional (`SMTP`) en preview y production.
+- Definir si se integra un segundo medio de pago (por ejemplo, `Khipu`) ademas de Transbank.
