@@ -1659,12 +1659,46 @@ p {
   width: min(680px, 100%);
 }
 
+.admin-modal--benefit-confirm {
+  width: min(560px, 100%);
+}
+
 .admin-modal__header {
   display: flex;
   align-items: start;
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1rem;
+}
+
+.benefit-confirm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+}
+
+.benefit-confirm-grid div {
+  padding: 0.85rem 0.9rem;
+  border-radius: 1.1rem;
+  background: rgba(244, 251, 255, 0.82);
+  border: 1px solid rgba(91, 166, 216, 0.18);
+}
+
+.benefit-confirm-grid dt {
+  margin: 0 0 0.3rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8f94aa;
+}
+
+.benefit-confirm-grid dd {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--fk-sky-deep);
+  word-break: break-word;
 }
 
 .admin-modal__form {
@@ -1868,6 +1902,10 @@ p {
   }
 
   .admin-modal__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .benefit-confirm-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 

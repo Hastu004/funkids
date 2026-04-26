@@ -708,6 +708,46 @@ interface SaleMethodOption {
         </article>
       </div>
 
+      <div class="admin-modal-backdrop" *ngIf="benefitConsumeCandidate() as candidate" (click)="closeBenefitConsumeModal()">
+        <article class="admin-modal admin-modal--benefit-confirm" (click)="$event.stopPropagation()">
+          <div class="admin-modal__header">
+            <div>
+              <p class="eyebrow subtle">Confirmacion</p>
+              <h2>Consumir beneficio</h2>
+              <p class="admin-copy">Se notificara al cliente y a los correos de respaldo de compras.</p>
+            </div>
+          </div>
+
+          <dl class="benefit-confirm-grid">
+            <div>
+              <dt>Cliente</dt>
+              <dd>{{ candidate.participant.fullName }}</dd>
+            </div>
+            <div>
+              <dt>RUT</dt>
+              <dd>{{ candidate.participant.rut || 'Sin RUT' }}</dd>
+            </div>
+            <div>
+              <dt>Email</dt>
+              <dd>{{ candidate.participant.email || 'Sin correo' }}</dd>
+            </div>
+            <div>
+              <dt>Beneficio</dt>
+              <dd>{{ candidate.benefit.minutes }} minutos gratis</dd>
+            </div>
+          </dl>
+
+          <div class="admin-inline-actions">
+            <button class="button secondary" type="button" (click)="closeBenefitConsumeModal()" [disabled]="consumingBenefitOrderId() === candidate.orderId">
+              Cancelar
+            </button>
+            <button class="button primary" type="button" (click)="confirmConsumeBenefit()" [disabled]="consumingBenefitOrderId() === candidate.orderId">
+              {{ consumingBenefitOrderId() === candidate.orderId ? 'Consumiendo...' : 'Confirmar consumo' }}
+            </button>
+          </div>
+        </article>
+      </div>
+
       <ng-template #loginView>
         <section class="page-section admin-login">
           <article class="admin-card admin-card--login">
@@ -773,6 +813,7 @@ export class AdminPage implements OnDestroy {
   protected readonly isDeletingWinner = signal(false);
   protected readonly resendingEmailOrderId = signal<string | null>(null);
   protected readonly consumingBenefitOrderId = signal<string | null>(null);
+  protected readonly benefitConsumeCandidate = signal<AdminBenefitSearchMatch | null>(null);
   protected readonly loginError = signal('');
   protected readonly cashSaleMessage = signal('');
   protected readonly editMessage = signal('');
@@ -1264,11 +1305,20 @@ export class AdminPage implements OnDestroy {
       return;
     }
 
-    const shouldConsume =
-      typeof window === 'undefined'
-        ? true
-        : window.confirm(`Consumir beneficio de ${match.participant.fullName}? Se notificara por correo.`);
-    if (!shouldConsume) {
+    this.benefitConsumeCandidate.set(match);
+  }
+
+  protected closeBenefitConsumeModal() {
+    if (this.consumingBenefitOrderId()) {
+      return;
+    }
+
+    this.benefitConsumeCandidate.set(null);
+  }
+
+  protected confirmConsumeBenefit() {
+    const match = this.benefitConsumeCandidate();
+    if (!match || !this.isBenefitAvailable(match) || this.consumingBenefitOrderId() === match.orderId) {
       return;
     }
 
@@ -1276,6 +1326,7 @@ export class AdminPage implements OnDestroy {
     this.adminApi.consumeBenefit(match.orderId).subscribe({
       next: (response) => {
         this.consumingBenefitOrderId.set(null);
+        this.benefitConsumeCandidate.set(null);
         this.searchBenefits();
         this.showToast('success', 'Beneficio consumido', response.message);
       },
@@ -1366,6 +1417,7 @@ export class AdminPage implements OnDestroy {
     this.benefitSearchTerm.set('');
     this.benefitSummary.set({ available: 0, consumed: 0, totalEligible: 0 });
     this.benefitTab.set('available');
+    this.benefitConsumeCandidate.set(null);
     this.adminApi.logout();
   }
 
