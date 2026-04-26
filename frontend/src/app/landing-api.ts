@@ -58,6 +58,7 @@ export interface PurchaseResponse {
     fullName: string;
     email: string;
     phone: string | null;
+    rut: string | null;
     wantsAccount: boolean;
   };
   order: {
@@ -88,6 +89,7 @@ export interface WebpayResultResponse {
     fullName: string;
     email: string | null;
     phone: string | null;
+    rut: string | null;
     wantsAccount: boolean;
   };
   order: {

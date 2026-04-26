@@ -1,10 +1,18 @@
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, computed, inject, OnDestroy, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators, type FormControl } from '@angular/forms';
-import { AdminApi, type AdminOrder, type AdminRaffleWinner, type AdminRole, type ManualSaleMethod } from './admin-api';
+import {
+  AdminApi,
+  type AdminBenefitSearchMatch,
+  type AdminOrder,
+  type AdminRaffleWinner,
+  type AdminRole,
+  type ManualSaleMethod,
+} from './admin-api';
 import { LandingApi } from './landing-api';
 
 const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
+const MIN_BENEFIT_SEARCH_CHARS = 2;
 
 interface WinnerPreview {
   fullName: string;
@@ -68,6 +76,88 @@ interface SaleMethodOption {
           </article>
         </div>
 
+        <section class="admin-card admin-card--benefit">
+          <p class="eyebrow subtle">Beneficio Transbank</p>
+          <h2>Buscar cliente y consumir beneficio</h2>
+          <p class="admin-copy">
+            Solo las compras online con Transbank tienen 10 minutos gratis en FunKids. Busca por RUT, nombre o correo.
+          </p>
+
+          <form class="benefit-search-form" (ngSubmit)="searchBenefits()">
+            <label class="field">
+              <span>Cliente</span>
+              <input
+                type="search"
+                [value]="benefitSearchTerm()"
+                placeholder="RUT, nombre o correo"
+                (input)="setBenefitSearchTerm(($any($event.target).value ?? '').toString())"
+              />
+            </label>
+
+            <button class="button primary admin-button" type="submit" [disabled]="isSearchingBenefits()">
+              {{ isSearchingBenefits() ? 'Buscando...' : 'Buscar' }}
+            </button>
+          </form>
+
+          <p class="error server-error" *ngIf="benefitSearchError()">{{ benefitSearchError() }}</p>
+
+          <div class="admin-table-wrap" *ngIf="benefitSearchResults().length > 0">
+            <table class="admin-table admin-table--benefits">
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Compra</th>
+                  <th>Beneficio</th>
+                  <th>Accion</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let match of benefitSearchResults()">
+                  <td>
+                    <strong>{{ match.participant.fullName }}</strong>
+                    <small>{{ match.participant.rut || 'Sin RUT' }}</small>
+                    <small>{{ match.participant.email || 'Sin correo' }}</small>
+                  </td>
+                  <td>
+                    <strong>{{ match.order.packageLabel }}</strong>
+                    <small>{{ match.order.paymentLabel }}</small>
+                    <small>{{ match.createdAt | date: 'dd/MM/yyyy HH:mm' }}</small>
+                  </td>
+                  <td>
+                    <strong [class.benefit-status--available]="isBenefitAvailable(match)" [class.benefit-status--used]="isBenefitConsumed(match)">
+                      {{ getBenefitStatusLabel(match) }}
+                    </strong>
+                    <small>{{ match.benefit.reason || ('Incluye ' + match.benefit.minutes + ' minutos gratis en FunKids.') }}</small>
+                    <small *ngIf="match.benefit.consumedAt">
+                      Consumido: {{ match.benefit.consumedAt | date: 'dd/MM/yyyy HH:mm' }}
+                    </small>
+                  </td>
+                  <td>
+                    <button
+                      class="button secondary admin-button"
+                      type="button"
+                      (click)="consumeBenefit(match)"
+                      [disabled]="!isBenefitAvailable(match) || consumingBenefitOrderId() === match.orderId"
+                    >
+                      {{
+                        consumingBenefitOrderId() === match.orderId
+                          ? 'Consumiendo...'
+                          : isBenefitAvailable(match)
+                            ? 'Consumir beneficio'
+                            : 'No disponible'
+                      }}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="admin-empty-state" *ngIf="hasBenefitSearchResults() && benefitSearchResults().length === 0">
+            No encontramos clientes con ese criterio.
+          </div>
+        </section>
+
         <section class="admin-grid" [class.admin-grid--editing]="!!editingOrder()" *ngIf="isAdmin() && dashboard() as dashboardData">
           <aside class="admin-stack" *ngIf="editingOrder()">
             <article class="admin-card">
@@ -94,6 +184,11 @@ interface SaleMethodOption {
                   <small class="error" *ngIf="hasEditError('phone', 'required') || hasEditError('phone', 'pattern')">
                     Ingresa el telefono con formato +56 9 1234 5678.
                   </small>
+                </label>
+
+                <label class="field">
+                  <span>RUT opcional</span>
+                  <input type="text" formControlName="rut" placeholder="12345678-9" (blur)="normalizeEditRut()" />
                 </label>
 
                 <label class="field">
@@ -185,7 +280,7 @@ interface SaleMethodOption {
                 <input
                   type="search"
                   [value]="searchTerm()"
-                  placeholder="Nombre, email, telefono o ticket"
+                  placeholder="Nombre, RUT, email, telefono o ticket"
                   (input)="setSearch(($any($event.target).value ?? '').toString())"
                 />
               </label>
@@ -225,6 +320,7 @@ interface SaleMethodOption {
                   <tr *ngFor="let order of paginatedOrders()">
                     <td>
                       <strong>{{ order.participant.fullName }}</strong>
+                      <small>{{ order.participant.rut || 'Sin RUT' }}</small>
                       <small>{{ order.participant.email || order.participant.phone || 'Sin contacto' }}</small>
                     </td>
                     <td>
@@ -330,6 +426,11 @@ interface SaleMethodOption {
               </label>
 
               <label class="field">
+                <span>RUT opcional</span>
+                <input type="text" formControlName="rut" placeholder="12345678-9" (blur)="normalizeCashSaleRut()" />
+              </label>
+
+              <label class="field">
                 <span>Email opcional</span>
                 <input type="email" formControlName="email" placeholder="cliente@correo.cl" (blur)="normalizeCashSaleEmail()" />
                 <small class="error" *ngIf="hasCashSaleError('email', 'email')">
@@ -432,6 +533,11 @@ interface SaleMethodOption {
                 <small class="error" *ngIf="hasCashSaleError('phone', 'required') || hasCashSaleError('phone', 'pattern')">
                   Ingresa el telefono con formato +56 9 1234 5678.
                 </small>
+              </label>
+
+              <label class="field">
+                <span>RUT opcional</span>
+                <input type="text" formControlName="rut" placeholder="12345678-9" (blur)="normalizeCashSaleRut()" />
               </label>
 
               <label class="field">
@@ -617,6 +723,10 @@ export class AdminPage implements OnDestroy {
   protected readonly dashboard = computed(() => this.adminApi.dashboard());
   protected readonly landing = computed(() => this.landingApi.landing());
   protected readonly searchTerm = signal('');
+  protected readonly benefitSearchTerm = signal('');
+  protected readonly benefitSearchResults = signal<AdminBenefitSearchMatch[]>([]);
+  protected readonly hasBenefitSearchResults = signal(false);
+  protected readonly benefitSearchError = signal('');
   protected readonly channelFilter = signal<'all' | 'webpay' | 'cash'>('all');
   protected readonly statusFilter = signal<'all' | 'paid'>('all');
   protected readonly currentPage = signal(1);
@@ -626,10 +736,12 @@ export class AdminPage implements OnDestroy {
   protected readonly isDrawModalOpen = signal(false);
   protected readonly isLoggingIn = signal(false);
   protected readonly isSavingCashSale = signal(false);
+  protected readonly isSearchingBenefits = signal(false);
   protected readonly isUpdatingOrder = signal(false);
   protected readonly isDrawingWinner = signal(false);
   protected readonly isDeletingWinner = signal(false);
   protected readonly resendingEmailOrderId = signal<string | null>(null);
+  protected readonly consumingBenefitOrderId = signal<string | null>(null);
   protected readonly loginError = signal('');
   protected readonly cashSaleMessage = signal('');
   protected readonly editMessage = signal('');
@@ -664,6 +776,7 @@ export class AdminPage implements OnDestroy {
         !search ||
         [
           order.participant.fullName,
+          order.participant.rut ?? '',
           order.participant.email ?? '',
           order.participant.phone ?? '',
           order.order.packageLabel,
@@ -720,6 +833,7 @@ export class AdminPage implements OnDestroy {
   protected readonly cashSaleForm = this.formBuilder.nonNullable.group({
     fullName: ['', [Validators.required, Validators.minLength(3)]],
     phone: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
+    rut: [''],
     email: ['', Validators.email],
     packageId: ['', Validators.required],
     saleMethod: ['cash' as ManualSaleMethod, Validators.required],
@@ -735,6 +849,7 @@ export class AdminPage implements OnDestroy {
   protected readonly editForm = this.formBuilder.nonNullable.group({
     fullName: ['', [Validators.required, Validators.minLength(3)]],
     phone: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
+    rut: [''],
     email: ['', Validators.email],
     packageId: ['', Validators.required],
     status: ['paid' as 'paid', Validators.required],
@@ -788,6 +903,7 @@ export class AdminPage implements OnDestroy {
 
   protected submitCashSale() {
     this.formatCashSalePhone();
+    this.normalizeCashSaleRut();
     this.normalizeCashSaleEmail();
 
     if (this.cashSaleForm.invalid) {
@@ -809,6 +925,7 @@ export class AdminPage implements OnDestroy {
         this.cashSaleForm.reset({
           fullName: '',
           phone: '',
+          rut: '',
           email: '',
           packageId: '',
           saleMethod: 'cash',
@@ -840,6 +957,7 @@ export class AdminPage implements OnDestroy {
     }
 
     this.formatEditPhone();
+    this.normalizeEditRut();
     this.normalizeEditEmail();
 
     if (this.editForm.invalid) {
@@ -874,12 +992,14 @@ export class AdminPage implements OnDestroy {
     this.editForm.reset({
       fullName: order.participant.fullName,
       phone: order.participant.phone ?? '',
+      rut: order.participant.rut ?? '',
       email: order.participant.email ?? '',
       packageId: order.order.packageId,
       status: 'paid',
       notes: order.notes ?? '',
     });
     this.formatEditPhone();
+    this.normalizeEditRut();
     this.normalizeEditEmail();
   }
 
@@ -893,6 +1013,7 @@ export class AdminPage implements OnDestroy {
     this.editForm.reset({
       fullName: '',
       phone: '',
+      rut: '',
       email: '',
       packageId: '',
       status: 'paid',
@@ -1064,6 +1185,86 @@ export class AdminPage implements OnDestroy {
     });
   }
 
+  protected setBenefitSearchTerm(value: string) {
+    this.benefitSearchTerm.set(value);
+    this.benefitSearchError.set('');
+  }
+
+  protected searchBenefits() {
+    const search = this.benefitSearchTerm().trim();
+    this.hasBenefitSearchResults.set(false);
+    this.benefitSearchResults.set([]);
+    this.benefitSearchError.set('');
+
+    if (search.length < MIN_BENEFIT_SEARCH_CHARS) {
+      this.benefitSearchError.set(`Ingresa al menos ${MIN_BENEFIT_SEARCH_CHARS} caracteres para buscar.`);
+      return;
+    }
+
+    this.isSearchingBenefits.set(true);
+    this.adminApi.searchBenefits(search).subscribe({
+      next: (response) => {
+        this.isSearchingBenefits.set(false);
+        this.hasBenefitSearchResults.set(true);
+        this.benefitSearchResults.set(response.matches);
+      },
+      error: (error) => {
+        this.isSearchingBenefits.set(false);
+        this.hasBenefitSearchResults.set(false);
+        this.benefitSearchError.set(error.error?.message ?? 'No fue posible buscar clientes.');
+      },
+    });
+  }
+
+  protected consumeBenefit(match: AdminBenefitSearchMatch) {
+    if (!this.isBenefitAvailable(match) || this.consumingBenefitOrderId() === match.orderId) {
+      return;
+    }
+
+    const shouldConsume =
+      typeof window === 'undefined'
+        ? true
+        : window.confirm(`Consumir beneficio de ${match.participant.fullName}? Se notificara por correo.`);
+    if (!shouldConsume) {
+      return;
+    }
+
+    this.consumingBenefitOrderId.set(match.orderId);
+    this.adminApi.consumeBenefit(match.orderId).subscribe({
+      next: (response) => {
+        this.consumingBenefitOrderId.set(null);
+        this.benefitSearchResults.update((rows) =>
+          rows.map((item) => (item.orderId === response.match.orderId ? response.match : item)),
+        );
+        this.showToast('success', 'Beneficio consumido', response.message);
+      },
+      error: (error) => {
+        this.consumingBenefitOrderId.set(null);
+        this.showToast('error', 'No se pudo consumir', error.error?.message ?? 'No fue posible consumir el beneficio.');
+      },
+    });
+  }
+
+  protected isBenefitAvailable(match: AdminBenefitSearchMatch) {
+    return match.benefit.available;
+  }
+
+  protected isBenefitConsumed(match: AdminBenefitSearchMatch) {
+    return match.benefit.isConsumed;
+  }
+
+  protected getBenefitStatusLabel(match: AdminBenefitSearchMatch) {
+    if (match.benefit.available) {
+      return 'Disponible';
+    }
+
+    if (match.benefit.isConsumed) {
+      return 'Consumido';
+    }
+
+    return 'No aplica';
+  }
+
   protected setSearch(value: string) {
     this.searchTerm.set(value);
     this.currentPage.set(1);
@@ -1105,6 +1306,10 @@ export class AdminPage implements OnDestroy {
 
   protected logout() {
     this.recentSellerOrdersLocal.set([]);
+    this.benefitSearchResults.set([]);
+    this.hasBenefitSearchResults.set(false);
+    this.benefitSearchError.set('');
+    this.benefitSearchTerm.set('');
     this.adminApi.logout();
   }
 
@@ -1143,8 +1348,16 @@ export class AdminPage implements OnDestroy {
     this.normalizeEmailControl(this.cashSaleForm.controls.email);
   }
 
+  protected normalizeCashSaleRut() {
+    this.normalizeRutControl(this.cashSaleForm.controls.rut);
+  }
+
   protected normalizeEditEmail() {
     this.normalizeEmailControl(this.editForm.controls.email);
+  }
+
+  protected normalizeEditRut() {
+    this.normalizeRutControl(this.editForm.controls.rut);
   }
 
   protected maskWinnerEmail(email: string | null) {
@@ -1308,6 +1521,10 @@ export class AdminPage implements OnDestroy {
   private normalizeEmailControl(control: FormControl<string>) {
     control.setValue(control.value.trim().toLowerCase(), { emitEvent: false });
   }
+
+  private normalizeRutControl(control: FormControl<string>) {
+    control.setValue(normalizeRut(control.value), { emitEvent: false });
+  }
 }
 
 function buildExcelWorkbook(orders: AdminOrder[]) {
@@ -1316,6 +1533,7 @@ function buildExcelWorkbook(orders: AdminOrder[]) {
       (order) => `
         <tr>
           <td>${escapeExcel(order.participant.fullName)}</td>
+          <td>${escapeExcel(order.participant.rut ?? '')}</td>
           <td>${escapeExcel(order.participant.email ?? '')}</td>
           <td>${escapeExcel(order.participant.phone ?? '')}</td>
           <td>${escapeExcel(order.createdAt)}</td>
@@ -1346,6 +1564,7 @@ function buildExcelWorkbook(orders: AdminOrder[]) {
         <thead>
           <tr>
             <th>Cliente</th>
+            <th>RUT</th>
             <th>Email</th>
             <th>Telefono</th>
             <th>Fecha</th>
@@ -1372,4 +1591,19 @@ function escapeExcel(value: string) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function normalizeRut(value: string) {
+  const compact = value.replaceAll('.', '').replaceAll('-', '').replace(/\s+/g, '').toUpperCase();
+  if (compact.length < 2) {
+    return '';
+  }
+
+  const verifier = compact.slice(-1);
+  const body = compact.slice(0, -1);
+  if (!/^\d+$/.test(body) || !/^(\d|K)$/i.test(verifier)) {
+    return value.trim().toUpperCase();
+  }
+
+  return `${body}-${verifier}`;
 }

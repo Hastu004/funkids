@@ -7,11 +7,14 @@ export type AdminRole = 'admin' | 'seller';
 export type ManualSaleMethod = 'cash' | 'transfer' | 'debit' | 'credit';
 
 const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
+const TRANSBANK_BENEFIT_MINUTES = 10;
+const TRANSBANK_BENEFIT_MESSAGE = `Compras online por Transbank incluyen ${TRANSBANK_BENEFIT_MINUTES} minutos gratis en FunKids.`;
 
 export interface PurchasePayload {
   fullName?: string;
   email?: string;
   phone?: string;
+  rut?: string;
   packageId?: PackageId;
   wantsAccount?: boolean;
   password?: string;
@@ -28,6 +31,7 @@ export interface AdminCashSalePayload {
   fullName?: string;
   email?: string;
   phone?: string;
+  rut?: string;
   packageId?: PackageId;
   saleMethod?: ManualSaleMethod;
   receiptReference?: string;
@@ -38,9 +42,14 @@ export interface AdminOrderUpdatePayload {
   fullName?: string;
   email?: string;
   phone?: string;
+  rut?: string;
   packageId?: PackageId;
   status?: 'paid' | 'pending_payment';
   notes?: string;
+}
+
+export interface AdminConsumeBenefitPayload {
+  orderId?: string;
 }
 
 export interface OrderRecord {
@@ -54,7 +63,12 @@ export interface OrderRecord {
     fullName: string;
     email: string | null;
     phone: string | null;
+    rut: string | null;
     wantsAccount: boolean;
+  };
+  benefit: {
+    consumedAt: string | null;
+    consumedBy: string | null;
   };
   order: {
     packageId: PackageId;
@@ -138,7 +152,10 @@ interface OrderRow {
   full_name: string;
   email: string | null;
   phone: string | null;
+  rut: string | null;
   wants_account: number;
+  benefit_consumed_at: string | null;
+  benefit_consumed_by: string | null;
   package_id: PackageId;
   package_label: string;
   participations: number;
@@ -254,6 +271,34 @@ interface WebpayCommitResponse {
   authorization_code?: string | null;
   payment_type_code?: string | null;
   response_code?: number | null;
+}
+
+interface OrderBenefitState {
+  minutes: number;
+  eligible: boolean;
+  available: boolean;
+  isConsumed: boolean;
+  consumedAt: string | null;
+  consumedBy: string | null;
+  reason: string | null;
+}
+
+interface AdminBenefitSearchMatch {
+  orderId: string;
+  createdAt: string;
+  channel: SaleChannel;
+  sourceLabel: string;
+  status: 'paid' | 'pending_payment';
+  participant: {
+    fullName: string;
+    email: string | null;
+    rut: string | null;
+  };
+  order: {
+    packageLabel: string;
+    paymentLabel: string;
+  };
+  benefit: OrderBenefitState;
 }
 
 const packages = [
@@ -471,6 +516,7 @@ export async function createPurchase(payload: PurchasePayload, env: unknown, req
   const email = payload.email?.trim().toLowerCase();
   const fullName = payload.fullName?.trim();
   const phone = payload.phone?.trim() ?? '';
+  const rut = normalizeRut(payload.rut ?? '');
   const wantsAccount = Boolean(payload.wantsAccount);
   const acceptedTerms = Boolean(payload.acceptedTerms);
   const selectedPackage = packages.find((item) => item.id === payload.packageId);
@@ -485,6 +531,10 @@ export async function createPurchase(payload: PurchasePayload, env: unknown, req
 
   if (!phone || !isValidPhone(phone)) {
     return jsonError('Debes ingresar un telefono valido con formato +56 9 1234 5678.', 400);
+  }
+
+  if (payload.rut?.trim() && !rut) {
+    return jsonError('El RUT ingresado no es valido.', 400);
   }
 
   if (!selectedPackage) {
@@ -515,6 +565,7 @@ export async function createPurchase(payload: PurchasePayload, env: unknown, req
     fullName,
     email,
     phone,
+    rut,
     packageId: selectedPackage.id,
     ticketNumbers,
     wantsAccount,
@@ -827,6 +878,7 @@ export async function createAdminCashSale(request: Request, payload: AdminCashSa
   const fullName = payload.fullName?.trim();
   const phone = payload.phone?.trim();
   const email = payload.email?.trim().toLowerCase() || null;
+  const rut = normalizeRut(payload.rut ?? '');
   const selectedPackage = packages.find((item) => item.id === payload.packageId);
 
   if (!fullName) {
@@ -843,6 +895,10 @@ export async function createAdminCashSale(request: Request, payload: AdminCashSa
 
   if (email && !isValidEmail(email)) {
     return jsonError('Si ingresas un email, debe ser valido.', 400);
+  }
+
+  if (payload.rut?.trim() && !rut) {
+    return jsonError('Si ingresas un RUT, debe ser valido.', 400);
   }
 
   if (!selectedPackage) {
@@ -868,6 +924,7 @@ export async function createAdminCashSale(request: Request, payload: AdminCashSa
     fullName,
     email,
     phone,
+    rut,
     packageId: selectedPackage.id,
     ticketNumbers,
     manualSaleMethod: saleMethod,
@@ -932,6 +989,137 @@ export async function resendAdminOrderReceipt(request: Request, orderId: string,
   }
 }
 
+export async function searchAdminBenefits(request: Request, query: string, env: unknown) {
+  const dbResult = getDb(env);
+  if ('error' in dbResult) {
+    return dbResult.error;
+  }
+
+  await ensureOrdersSchema(dbResult.db);
+
+  const config = getAdminConfig(env);
+  if ('error' in config) {
+    return config.error;
+  }
+
+  const auth = await ensureAdminAuthorization(request, config, ['admin', 'seller']);
+  if ('error' in auth) {
+    return auth.error;
+  }
+
+  const search = query.trim().toLowerCase();
+  if (search.length < 2) {
+    return jsonError('Ingresa al menos 2 caracteres para buscar clientes.', 400);
+  }
+
+  const normalizedRutSearch = normalizeRutForSearch(query);
+  const orders = await fetchOrders(dbResult.db, { status: 'paid' });
+  const matches = orders
+    .filter((order) => {
+      const fullName = order.participant.fullName.toLowerCase();
+      const email = (order.participant.email ?? '').toLowerCase();
+      const rut = normalizeRutForSearch(order.participant.rut ?? '');
+
+      return (
+        fullName.includes(search) ||
+        email.includes(search) ||
+        (normalizedRutSearch.length > 0 && rut.includes(normalizedRutSearch))
+      );
+    })
+    .slice(0, 50)
+    .map((order) => mapOrderToBenefitSearchMatch(order));
+
+  return Response.json({
+    query: query.trim(),
+    matches,
+  });
+}
+
+export async function consumeAdminBenefit(request: Request, payload: AdminConsumeBenefitPayload, env: unknown) {
+  const dbResult = getDb(env);
+  if ('error' in dbResult) {
+    return dbResult.error;
+  }
+
+  await ensureOrdersSchema(dbResult.db);
+
+  const config = getAdminConfig(env);
+  if ('error' in config) {
+    return config.error;
+  }
+
+  const auth = await ensureAdminAuthorization(request, config, ['admin', 'seller']);
+  if ('error' in auth) {
+    return auth.error;
+  }
+
+  const orderId = String(payload.orderId ?? '').trim();
+  if (!orderId) {
+    return jsonError('Debes indicar la compra para consumir el beneficio.', 400);
+  }
+
+  const order = await findOrderById(dbResult.db, orderId);
+  if (!order) {
+    return jsonError('No encontramos la compra indicada.', 404);
+  }
+
+  const benefit = buildOrderBenefitState(order);
+  if (!benefit.eligible) {
+    return jsonError(benefit.reason ?? 'El beneficio no aplica para esta compra.', 400);
+  }
+
+  if (benefit.isConsumed) {
+    return jsonError('Este beneficio ya fue consumido anteriormente.', 409);
+  }
+
+  const recipient = order.participant.email?.trim().toLowerCase() ?? '';
+  if (!recipient || !isValidEmail(recipient)) {
+    return jsonError('No se puede consumir el beneficio porque esta compra no tiene un email valido.', 400);
+  }
+
+  const consumedAt = new Date().toISOString();
+  const smtpConfig = getSmtpConfig(env);
+  const benefitEmail = buildBenefitConsumedEmail(order, consumedAt, auth.profile.name, smtpConfig, getEmailBrandAssets(env));
+
+  try {
+    await sendSmtpEmail(smtpConfig, {
+      to: [recipient],
+      subject: benefitEmail.subject,
+      text: benefitEmail.text,
+      html: benefitEmail.html,
+    });
+
+    await sendSmtpEmail(smtpConfig, {
+      to: [...internalNotificationRecipients],
+      subject: benefitEmail.subject,
+      text: benefitEmail.text,
+      html: benefitEmail.html,
+    });
+
+    await dbResult.db
+      .prepare('UPDATE orders SET benefit_consumed_at = ?, benefit_consumed_by = ? WHERE id = ?')
+      .bind(consumedAt, auth.profile.email, order.id)
+      .run();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No fue posible notificar el consumo del beneficio.';
+    return jsonError(message, 502);
+  }
+
+  const updatedOrder = await findOrderById(dbResult.db, order.id);
+  if (!updatedOrder) {
+    return jsonError('No fue posible actualizar el estado del beneficio.', 500);
+  }
+
+  return Response.json({
+    message: `Beneficio consumido para ${updatedOrder.participant.fullName}.`,
+    match: mapOrderToBenefitSearchMatch(updatedOrder),
+    notified: {
+      customer: recipient,
+      backups: [...internalNotificationRecipients],
+    },
+  });
+}
+
 export async function updateAdminOrder(
   request: Request,
   orderId: string,
@@ -982,6 +1170,11 @@ export async function updateAdminOrder(
     return jsonError('Si ingresas un email, debe ser valido.', 400);
   }
 
+  const rut = normalizeRut(payload.rut ?? '');
+  if (payload.rut?.trim() && !rut) {
+    return jsonError('Si ingresas un RUT, debe ser valido.', 400);
+  }
+
   let ticketNumbers: string[];
   try {
     ticketNumbers = await allocateTicketNumbers(dbResult.db, selectedPackage.participations, {
@@ -1001,6 +1194,7 @@ export async function updateAdminOrder(
       fullName,
       email,
       phone,
+      rut,
     },
     order: {
       ...currentOrder.order,
@@ -1279,7 +1473,10 @@ async function ensureOrdersSchema(db: D1Database) {
         full_name TEXT NOT NULL,
         email TEXT,
         phone TEXT,
+        rut TEXT,
         wants_account INTEGER NOT NULL DEFAULT 0,
+        benefit_consumed_at TEXT,
+        benefit_consumed_by TEXT,
         package_id TEXT NOT NULL,
         package_label TEXT NOT NULL,
         participations INTEGER NOT NULL,
@@ -1292,6 +1489,8 @@ async function ensureOrdersSchema(db: D1Database) {
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_channel ON orders(channel)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_email ON orders(email)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_rut ON orders(rut)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_benefit_consumed_at ON orders(benefit_consumed_at)'),
   ]);
 
   const tableInfo = await db.prepare('PRAGMA table_info(orders)').all<{ name: string }>();
@@ -1301,7 +1500,21 @@ async function ensureOrdersSchema(db: D1Database) {
     await db.prepare('ALTER TABLE orders ADD COLUMN creator_email TEXT').run();
   }
 
+  if (!columnNames.has('rut')) {
+    await db.prepare('ALTER TABLE orders ADD COLUMN rut TEXT').run();
+  }
+
+  if (!columnNames.has('benefit_consumed_at')) {
+    await db.prepare('ALTER TABLE orders ADD COLUMN benefit_consumed_at TEXT').run();
+  }
+
+  if (!columnNames.has('benefit_consumed_by')) {
+    await db.prepare('ALTER TABLE orders ADD COLUMN benefit_consumed_by TEXT').run();
+  }
+
   await db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_creator_email ON orders(creator_email)').run();
+  await db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_rut ON orders(rut)').run();
+  await db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_benefit_consumed_at ON orders(benefit_consumed_at)').run();
 }
 
 async function ensureReceiptSchema(db: D1Database) {
@@ -1437,7 +1650,7 @@ function getEmailBrandAssets(env: unknown): EmailBrandAssets {
   const appUrl = normalizePublicAppUrl(String(source.PUBLIC_APP_URL ?? 'https://funkids.cl')) ?? 'https://funkids.cl';
 
   return {
-    logoUrl: `${appUrl}/funkids-email-logo.svg?v=1`,
+    logoUrl: `${appUrl}/funkids-logo-real.svg?v=2`,
     brandName: 'FunKids',
     brandTagline: 'Diversion para pequenos grandes exploradores',
   };
@@ -1706,10 +1919,10 @@ async function insertOrder(db: D1Database, order: OrderRecord, creatorEmail: str
         `
           INSERT INTO orders (
             id, created_at, channel, status, source_label, notes, creator_email,
-            full_name, email, phone, wants_account,
+            full_name, email, phone, rut, wants_account, benefit_consumed_at, benefit_consumed_by,
             package_id, package_label, participations, amount,
             payment_method, payment_label
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
       )
       .bind(
@@ -1723,7 +1936,10 @@ async function insertOrder(db: D1Database, order: OrderRecord, creatorEmail: str
         order.participant.fullName,
         order.participant.email,
         order.participant.phone,
+        order.participant.rut,
         order.participant.wantsAccount ? 1 : 0,
+        order.benefit.consumedAt,
+        order.benefit.consumedBy,
         order.order.packageId,
         order.order.packageLabel,
         order.order.participations,
@@ -1747,7 +1963,8 @@ async function replaceOrder(db: D1Database, order: OrderRecord) {
       .prepare(
         `
           UPDATE orders
-          SET status = ?, notes = ?, full_name = ?, email = ?, phone = ?,
+          SET status = ?, notes = ?, full_name = ?, email = ?, phone = ?, rut = ?,
+              benefit_consumed_at = ?, benefit_consumed_by = ?,
               package_id = ?, package_label = ?, participations = ?, amount = ?
           WHERE id = ?
         `,
@@ -1758,6 +1975,9 @@ async function replaceOrder(db: D1Database, order: OrderRecord) {
         order.participant.fullName,
         order.participant.email,
         order.participant.phone,
+        order.participant.rut,
+        order.benefit.consumedAt,
+        order.benefit.consumedBy,
         order.order.packageId,
         order.order.packageLabel,
         order.order.participations,
@@ -2073,6 +2293,55 @@ async function deliverInternalNotificationEmail(
   }
 }
 
+function mapOrderToBenefitSearchMatch(order: OrderRecord): AdminBenefitSearchMatch {
+  return {
+    orderId: order.id,
+    createdAt: order.createdAt,
+    channel: order.channel,
+    sourceLabel: order.sourceLabel,
+    status: order.status,
+    participant: {
+      fullName: order.participant.fullName,
+      email: order.participant.email,
+      rut: order.participant.rut,
+    },
+    order: {
+      packageLabel: order.order.packageLabel,
+      paymentLabel: order.order.paymentLabel,
+    },
+    benefit: buildOrderBenefitState(order),
+  };
+}
+
+function buildOrderBenefitState(order: OrderRecord): OrderBenefitState {
+  const consumedAt = order.benefit.consumedAt;
+  const consumedBy = order.benefit.consumedBy;
+  const isOnlineTransbank = order.channel === 'webpay' && order.order.paymentMethod === 'transbank';
+  const isPaid = order.status === 'paid';
+  const eligible = isOnlineTransbank && isPaid;
+  const isConsumed = Boolean(consumedAt);
+  const available = eligible && !isConsumed;
+
+  let reason: string | null = null;
+  if (!isOnlineTransbank) {
+    reason = `Solo aplica para compras por internet con Transbank (${TRANSBANK_BENEFIT_MINUTES} minutos gratis).`;
+  } else if (!isPaid) {
+    reason = 'El beneficio se habilita una vez confirmado el pago.';
+  } else if (isConsumed) {
+    reason = 'El beneficio ya fue consumido.';
+  }
+
+  return {
+    minutes: TRANSBANK_BENEFIT_MINUTES,
+    eligible,
+    available,
+    isConsumed,
+    consumedAt,
+    consumedBy,
+    reason,
+  };
+}
+
 function buildDashboardStats(orders: OrderRecord[]) {
   const totalRevenue = orders.reduce((sum, order) => sum + order.order.amount, 0);
   const totalTickets = orders.reduce((sum, order) => sum + order.order.ticketNumbers.length, 0);
@@ -2149,6 +2418,7 @@ function buildOrderRecord(input: {
   fullName: string;
   email: string | null;
   phone: string | null;
+  rut: string | null;
   packageId: PackageId;
   ticketNumbers: string[];
   manualSaleMethod?: ManualSaleMethod;
@@ -2182,7 +2452,12 @@ function buildOrderRecord(input: {
       fullName: input.fullName,
       email: input.email,
       phone: input.phone,
+      rut: input.rut,
       wantsAccount: input.wantsAccount,
+    },
+    benefit: {
+      consumedAt: null,
+      consumedBy: null,
     },
     order: {
       packageId: selectedPackage.id,
@@ -2208,7 +2483,12 @@ function mapOrderRow(row: OrderRow, ticketNumbers: string[]) {
       fullName: row.full_name,
       email: row.email,
       phone: row.phone,
+      rut: row.rut,
       wantsAccount: Boolean(row.wants_account),
+    },
+    benefit: {
+      consumedAt: row.benefit_consumed_at,
+      consumedBy: row.benefit_consumed_by,
     },
     order: {
       packageId: row.package_id,
@@ -2584,6 +2864,10 @@ function buildOrderReceiptEmail(
   const total = formatCurrency(order.order.amount);
   const tickets = order.order.ticketNumbers.join(', ');
   const paymentStatus = order.status === 'paid' ? 'Pagado' : 'Pendiente';
+  const benefitState = buildOrderBenefitState(order);
+  const benefitMessage = benefitState.eligible
+    ? `Beneficio: esta compra incluye ${TRANSBANK_BENEFIT_MINUTES} minutos gratis en FunKids (compra online por Transbank).`
+    : `Beneficio: ${TRANSBANK_BENEFIT_MESSAGE}`;
   const paymentDetail =
     order.channel === 'cash'
       ? `${order.order.paymentLabel} registrada por el equipo administrador.`
@@ -2596,7 +2880,9 @@ function buildOrderReceiptEmail(
   const safePackage = escapeHtml(order.order.packageLabel);
   const safeEmail = escapeHtml(order.participant.email ?? '');
   const safePhone = escapeHtml(order.participant.phone ?? 'No informado');
+  const safeRut = escapeHtml(order.participant.rut ?? 'No informado');
   const safePaymentDetail = escapeHtml(paymentDetail);
+  const safeBenefitMessage = escapeHtml(benefitMessage);
   const safeStatus = escapeHtml(paymentStatus);
   const safeDate = escapeHtml(orderDate);
   const safeBrandName = escapeHtml(brandAssets.brandName);
@@ -2620,6 +2906,7 @@ function buildOrderReceiptEmail(
       `Total: ${total}`,
       `Estado: ${paymentStatus}`,
       `Detalle de pago: ${paymentDetail}`,
+      benefitMessage,
       '',
       'Conserva este mensaje como respaldo de tu compra.',
       'Si necesitas ayuda, responde a este correo.',
@@ -2676,11 +2963,13 @@ function buildOrderReceiptEmail(
               <p style="margin:0;line-height:1.6">Tickets asignados: <strong>${safeTickets}</strong></p>
             </div>
             <div style="padding:18px;border:1px solid #e6eef5;border-radius:14px;background:#ffffff;margin-bottom:18px">
+              <p style="margin:0 0 8px;line-height:1.6"><strong>RUT</strong>: ${safeRut}</p>
               <p style="margin:0 0 8px;line-height:1.6"><strong>Email de contacto</strong>: ${safeEmail}</p>
               <p style="margin:0 0 8px;line-height:1.6"><strong>Telefono</strong>: ${safePhone}</p>
               <p style="margin:0;line-height:1.6"><strong>Detalle de pago</strong>: ${safePaymentDetail}</p>
             </div>
             <div style="padding:16px 18px;border-left:3px solid #4b99d6;background:#f8fbfe;border-radius:0 12px 12px 0;margin-bottom:18px">
+              <p style="margin:0 0 6px;font-size:14px;line-height:1.7"><strong>${safeBenefitMessage}</strong></p>
               <p style="margin:0;font-size:14px;line-height:1.7">Conserva este mensaje como respaldo de tu compra. Si necesitas ayuda, responde a este correo y nuestro equipo te asistira.</p>
             </div>
             <p style="margin:0 0 6px;font-size:15px;line-height:1.7">Atentamente,</p>
@@ -2709,6 +2998,10 @@ function buildInternalOrderNotificationEmail(
   const ticketList = order.order.ticketNumbers.join(', ');
   const contactEmail = order.participant.email ?? 'Sin email';
   const phone = order.participant.phone ?? 'Sin telefono';
+  const rut = order.participant.rut ?? 'Sin RUT';
+  const benefitMessage = buildOrderBenefitState(order).eligible
+    ? `Incluye ${TRANSBANK_BENEFIT_MINUTES} minutos gratis en FunKids.`
+    : TRANSBANK_BENEFIT_MESSAGE;
   const paymentDetail =
     order.channel === 'cash'
       ? `${order.order.paymentLabel} registrada por el administrador.`
@@ -2722,6 +3015,7 @@ function buildInternalOrderNotificationEmail(
       'Se registro una nueva compra en FunKids.',
       '',
       `Cliente: ${order.participant.fullName}`,
+      `RUT: ${rut}`,
       `Email: ${contactEmail}`,
       `Telefono: ${phone}`,
       `Compra: ${order.id}`,
@@ -2733,6 +3027,7 @@ function buildInternalOrderNotificationEmail(
       `Total: ${total}`,
       `Tickets: ${ticketList}`,
       `Detalle de pago: ${paymentDetail}`,
+      `Beneficio: ${benefitMessage}`,
       order.notes ? `Nota: ${order.notes}` : '',
       '',
       `Correo emitido por ${smtpConfig.fromEmail}.`,
@@ -2763,10 +3058,87 @@ function buildInternalOrderNotificationEmail(
             <p style="margin:0">Tickets: <strong>${escapeHtml(ticketList)}</strong></p>
           </div>
           <div style="padding:18px;border-radius:20px;background:#f8fcff">
+            <p style="margin:0 0 8px"><strong>RUT</strong>: ${escapeHtml(rut)}</p>
             <p style="margin:0 0 8px"><strong>Email</strong>: ${escapeHtml(contactEmail)}</p>
             <p style="margin:0 0 8px"><strong>Telefono</strong>: ${escapeHtml(phone)}</p>
             <p style="margin:0 0 8px"><strong>Canal</strong>: ${escapeHtml(order.sourceLabel)}</p>
-            <p style="margin:0"><strong>Pago</strong>: ${escapeHtml(paymentDetail)}</p>
+            <p style="margin:0 0 8px"><strong>Pago</strong>: ${escapeHtml(paymentDetail)}</p>
+            <p style="margin:0"><strong>Beneficio</strong>: ${escapeHtml(benefitMessage)}</p>
+          </div>
+        </div>
+      </div>
+    `,
+  };
+}
+
+function buildBenefitConsumedEmail(
+  order: OrderRecord,
+  consumedAt: string,
+  consumedBy: string,
+  smtpConfig: SmtpConfig,
+  brandAssets: EmailBrandAssets,
+) {
+  const consumedAtFormatted = formatReceiptDate(consumedAt);
+  const safeBrandName = escapeHtml(brandAssets.brandName);
+  const safeName = escapeHtml(order.participant.fullName);
+  const safeOrderId = escapeHtml(order.id);
+  const safeConsumedAt = escapeHtml(consumedAtFormatted);
+  const safeConsumedBy = escapeHtml(consumedBy);
+  const safeRut = escapeHtml(order.participant.rut ?? 'No informado');
+  const safeEmail = escapeHtml(order.participant.email ?? 'No informado');
+  const safeMinutes = escapeHtml(String(TRANSBANK_BENEFIT_MINUTES));
+
+  return {
+    subject: `Beneficio consumido FunKids - ${order.participant.fullName}`,
+    text: [
+      `${brandAssets.brandName}`,
+      'Consumo de beneficio',
+      '',
+      `Hola ${order.participant.fullName},`,
+      '',
+      `Te confirmamos que el beneficio de ${TRANSBANK_BENEFIT_MINUTES} minutos gratis asociado a tu compra fue consumido.`,
+      '',
+      `Compra: ${order.id}`,
+      `Fecha consumo: ${consumedAtFormatted}`,
+      `Registrado por: ${consumedBy}`,
+      `RUT cliente: ${order.participant.rut ?? 'No informado'}`,
+      `Email cliente: ${order.participant.email ?? 'No informado'}`,
+      '',
+      `Este beneficio aplica solamente a compras online por Transbank.`,
+      '',
+      `Correo emitido por ${smtpConfig.fromEmail}.`,
+    ].join('\r\n'),
+    html: `
+      <div style="margin:0;padding:24px;background:#f7fafc;font-family:Arial,sans-serif;color:#465071">
+        <div style="max-width:680px;margin:0 auto;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #dce9f4">
+          <div style="padding:24px 28px;border-bottom:1px solid #e5eef6;background:#ffffff">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%">
+              <tr>
+                <td style="vertical-align:middle">
+                  ${renderEmailBrandLockup(brandAssets)}
+                </td>
+                <td style="vertical-align:middle;text-align:right">
+                  <p style="margin:0 0 4px;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4b99d6">${safeBrandName}</p>
+                  <h1 style="margin:0;font-size:24px;line-height:1.1;color:#33415c">Beneficio consumido</h1>
+                </td>
+              </tr>
+            </table>
+          </div>
+          <div style="padding:28px">
+            <p style="margin:0 0 16px;font-size:15px;line-height:1.7">Hola <strong>${safeName}</strong>, te confirmamos que el beneficio de <strong>${safeMinutes} minutos gratis</strong> asociado a tu compra fue consumido.</p>
+            <div style="padding:18px;border:1px solid #e6eef5;border-radius:14px;background:#ffffff;margin-bottom:16px">
+              <p style="margin:0 0 8px;line-height:1.6"><strong>Compra</strong>: ${safeOrderId}</p>
+              <p style="margin:0 0 8px;line-height:1.6"><strong>Fecha consumo</strong>: ${safeConsumedAt}</p>
+              <p style="margin:0 0 8px;line-height:1.6"><strong>Registrado por</strong>: ${safeConsumedBy}</p>
+              <p style="margin:0 0 8px;line-height:1.6"><strong>RUT cliente</strong>: ${safeRut}</p>
+              <p style="margin:0;line-height:1.6"><strong>Email cliente</strong>: ${safeEmail}</p>
+            </div>
+            <div style="padding:16px 18px;border-left:3px solid #4b99d6;background:#f8fbfe;border-radius:0 12px 12px 0">
+              <p style="margin:0;font-size:14px;line-height:1.7">Este beneficio aplica solamente a compras online por Transbank.</p>
+            </div>
+          </div>
+          <div style="padding:18px 28px;background:#f8fbfe;border-top:1px solid #e6eef5">
+            <p style="margin:0;font-size:13px;line-height:1.6;color:#6e7592">Mensaje emitido automaticamente desde ${escapeHtml(smtpConfig.fromEmail)}.</p>
           </div>
         </div>
       </div>
@@ -3126,6 +3498,52 @@ function toHex(buffer: ArrayBuffer) {
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(email);
+}
+
+function normalizeRutForSearch(value: string) {
+  return value.replaceAll('.', '').replaceAll('-', '').replace(/\s+/g, '').toLowerCase();
+}
+
+function normalizeRut(value: string) {
+  const compact = normalizeRutForSearch(value).toUpperCase();
+  if (compact.length < 2) {
+    return null;
+  }
+
+  const verifier = compact.slice(-1);
+  const body = compact.slice(0, -1);
+  if (!/^\d+$/.test(body) || !/^(\d|K)$/i.test(verifier)) {
+    return null;
+  }
+
+  const expectedVerifier = computeRutVerifier(body);
+  if (expectedVerifier !== verifier) {
+    return null;
+  }
+
+  return `${body}-${verifier}`;
+}
+
+function computeRutVerifier(body: string) {
+  let sum = 0;
+  let multiplier = 2;
+
+  for (let index = body.length - 1; index >= 0; index -= 1) {
+    const digit = Number(body[index]);
+    sum += digit * multiplier;
+    multiplier = multiplier === 7 ? 2 : multiplier + 1;
+  }
+
+  const remainder = 11 - (sum % 11);
+  if (remainder === 11) {
+    return '0';
+  }
+
+  if (remainder === 10) {
+    return 'K';
+  }
+
+  return String(remainder);
 }
 
 function isValidPhone(phone: string) {

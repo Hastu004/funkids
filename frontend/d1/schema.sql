@@ -9,7 +9,10 @@ CREATE TABLE IF NOT EXISTS orders (
   full_name TEXT NOT NULL,
   email TEXT,
   phone TEXT,
+  rut TEXT,
   wants_account INTEGER NOT NULL DEFAULT 0,
+  benefit_consumed_at TEXT,
+  benefit_consumed_by TEXT,
   package_id TEXT NOT NULL,
   package_label TEXT NOT NULL,
   participations INTEGER NOT NULL,
@@ -87,6 +90,8 @@ CREATE INDEX IF NOT EXISTS idx_orders_channel ON orders(channel);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_email ON orders(email);
 CREATE INDEX IF NOT EXISTS idx_orders_creator_email ON orders(creator_email);
+CREATE INDEX IF NOT EXISTS idx_orders_rut ON orders(rut);
+CREATE INDEX IF NOT EXISTS idx_orders_benefit_consumed_at ON orders(benefit_consumed_at);
 CREATE INDEX IF NOT EXISTS idx_order_tickets_order_id ON order_tickets(order_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_order_tickets_ticket_number ON order_tickets(ticket_number);
 CREATE INDEX IF NOT EXISTS idx_webpay_transactions_token ON webpay_transactions(token);

@@ -1408,6 +1408,30 @@ p {
   border-radius: 1.8rem;
 }
 
+.admin-card--benefit {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.benefit-search-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.7rem;
+  align-items: end;
+}
+
+.admin-table--benefits {
+  min-width: 760px;
+}
+
+.admin-table td strong.benefit-status--available {
+  color: #2c8e5d;
+}
+
+.admin-table td strong.benefit-status--used {
+  color: #b34b6c;
+}
+
 .admin-card--login {
   width: min(480px, 100%);
   margin: 1.5rem auto 0;
@@ -1793,6 +1817,10 @@ p {
   }
 
   .admin-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .benefit-search-form {
     grid-template-columns: minmax(0, 1fr);
   }
 

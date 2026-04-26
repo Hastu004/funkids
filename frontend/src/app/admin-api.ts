@@ -1,4 +1,4 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { inject, Injectable, signal } from '@angular/core';
 import { tap } from 'rxjs';
 import type { PackageId, PaymentMethodId } from './landing-api';
@@ -31,7 +31,12 @@ export interface AdminOrder {
     fullName: string;
     email: string | null;
     phone: string | null;
+    rut: string | null;
     wantsAccount: boolean;
+  };
+  benefit: {
+    consumedAt: string | null;
+    consumedBy: string | null;
   };
   order: {
     packageId: PackageId;
@@ -95,6 +100,46 @@ export interface AdminDashboardResponse {
   latestWinner: AdminRaffleWinner | null;
 }
 
+export interface AdminBenefitSearchMatch {
+  orderId: string;
+  createdAt: string;
+  channel: 'webpay' | 'cash';
+  sourceLabel: string;
+  status: 'paid' | 'pending_payment';
+  participant: {
+    fullName: string;
+    email: string | null;
+    rut: string | null;
+  };
+  order: {
+    packageLabel: string;
+    paymentLabel: string;
+  };
+  benefit: {
+    minutes: number;
+    eligible: boolean;
+    available: boolean;
+    isConsumed: boolean;
+    consumedAt: string | null;
+    consumedBy: string | null;
+    reason: string | null;
+  };
+}
+
+export interface AdminBenefitSearchResponse {
+  query: string;
+  matches: AdminBenefitSearchMatch[];
+}
+
+export interface AdminConsumeBenefitResponse {
+  message: string;
+  match: AdminBenefitSearchMatch;
+  notified: {
+    customer: string;
+    backups: string[];
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminApi {
   private readonly http = inject(HttpClient);
@@ -128,6 +173,7 @@ export class AdminApi {
     fullName: string;
     email: string;
     phone: string;
+    rut: string;
     packageId: string;
     saleMethod: ManualSaleMethod;
     receiptReference: string;
@@ -161,6 +207,7 @@ export class AdminApi {
       fullName: string;
       email: string;
       phone: string;
+      rut: string;
       packageId: string;
       status: 'paid' | 'pending_payment';
       notes: string;
@@ -210,6 +257,22 @@ export class AdminApi {
   resendOrderEmail(orderId: string) {
     return this.http.post<AdminReceiptResponse>(
       `${apiBaseUrl}/admin/orders/resend-email`,
+      { orderId },
+      { headers: this.buildHeaders() },
+    );
+  }
+
+  searchBenefits(query: string) {
+    const params = new HttpParams().set('q', query);
+    return this.http.get<AdminBenefitSearchResponse>(`${apiBaseUrl}/admin/benefits/search`, {
+      headers: this.buildHeaders(),
+      params,
+    });
+  }
+
+  consumeBenefit(orderId: string) {
+    return this.http.post<AdminConsumeBenefitResponse>(
+      `${apiBaseUrl}/admin/benefits/consume`,
       { orderId },
       { headers: this.buildHeaders() },
     );

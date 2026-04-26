@@ -56,6 +56,7 @@ const SALES_CLOSE_MESSAGE = 'La venta de tickets finalizo el 31 de julio de 2026
           <div class="purchase-card__header">
             <h2>{{ landing.raffle.title }}</h2>
             <p>Elige participaciones, paga con Webpay y recibe tus numeros al confirmar el pago.</p>
+            <p class="helper-text">Solo las compras online por Transbank tienen 10 minutos gratis en FunKids.</p>
           </div>
 
           <p class="error server-error" *ngIf="salesClosed">{{ salesCloseMessage }}</p>
@@ -75,6 +76,11 @@ const SALES_CLOSE_MESSAGE = 'La venta de tickets finalizo el 31 de julio de 2026
               <small class="error" *ngIf="hasError('email', 'required') || hasError('email', 'email')">
                 Usa un email valido para confirmar tu compra.
               </small>
+            </label>
+
+            <label class="field">
+              <span>RUT (opcional)</span>
+              <input type="text" formControlName="rut" placeholder="12345678-9" (blur)="normalizeRut()" />
             </label>
 
             <div class="field-grid">
@@ -123,6 +129,8 @@ const SALES_CLOSE_MESSAGE = 'La venta de tickets finalizo el 31 de julio de 2026
                 </span>
               </label>
             </div>
+
+            <p class="helper-text">Beneficio incluido: 10 minutos gratis en FunKids para compras online por Transbank.</p>
 
             <label class="check-line legal">
               <input type="checkbox" formControlName="acceptedTerms" />
@@ -280,6 +288,7 @@ export class HomePage {
   protected readonly purchaseForm = this.formBuilder.nonNullable.group({
     fullName: ['', [Validators.required, Validators.minLength(3)]],
     email: ['', [Validators.required, Validators.email]],
+    rut: [''],
     phone: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
     packageId: ['', Validators.required],
     paymentMethod: ['transbank', Validators.required],
@@ -377,6 +386,11 @@ export class HomePage {
     phoneControl.setValue(formatted, { emitEvent: false });
   }
 
+  protected normalizeRut() {
+    const rutControl = this.purchaseForm.controls.rut;
+    rutControl.setValue(normalizeRut(rutControl.value), { emitEvent: false });
+  }
+
   private redirectToWebpay(url: string, token: string) {
     const form = document.createElement('form');
     form.method = 'POST';
@@ -406,4 +420,19 @@ export class HomePage {
 
     return Date.now() >= SALES_CLOSE_AT;
   }
+}
+
+function normalizeRut(value: string) {
+  const compact = value.replaceAll('.', '').replaceAll('-', '').replace(/\s+/g, '').toUpperCase();
+  if (compact.length < 2) {
+    return '';
+  }
+
+  const verifier = compact.slice(-1);
+  const body = compact.slice(0, -1);
+  if (!/^\d+$/.test(body) || !/^(\d|K)$/i.test(verifier)) {
+    return value.trim().toUpperCase();
+  }
+
+  return `${body}-${verifier}`;
 }

@@ -5,7 +5,10 @@
     "ng": "ng",
     "start": "NG_CLI_ANALYTICS=false ng serve --proxy-config proxy.conf.json",
     "functions:dev": "npx --yes wrangler@4 pages dev . --port 8788",
-    "d1:migrate:local": "npx --yes wrangler@4 d1 migrations apply funkids-db --local",
+    "functions:dev:preview": "npx --yes wrangler@4 pages dev . --env preview --port 8788",
+    "d1:migrate:local": "npx --yes wrangler@4 d1 migrations apply funkids-db-local --local",
+    "d1:migrate:preview": "npx --yes wrangler@4 d1 migrations apply funkids-db-dev --env preview",
+    "d1:migrate:production": "npx --yes wrangler@4 d1 migrations apply funkids-db-prod --env production",
     "build": "NG_CLI_ANALYTICS=false ng build",
     "watch": "NG_CLI_ANALYTICS=false ng build --watch --configuration development",
     "test": "ng test"

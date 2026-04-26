@@ -32,13 +32,13 @@ Para Webpay en integración, el ejemplo ya viene preconfigurado con:
 - `TRANSBANK_COMMERCE_CODE=597055555532`
 - `TRANSBANK_API_KEY` de integración oficial
 
-Valores que debes completar tú (no se pueden inferir por internet para tu cuenta):
+Valores que debes completar tu (no se pueden inferir por internet para tu cuenta):
 
-- `PUBLIC_APP_URL`: tu dominio real (Cloudflare Pages o dominio propio)
+- `PUBLIC_APP_URL`: para local, deja `http://localhost:8788`
 - `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`
 - `SELLER_EMAIL`, `SELLER_PASSWORD` (opcional para rol vendedor)
 - `SMTP_*`: credenciales reales de tu proveedor de correo
-- `database_id` real de D1 en `frontend/wrangler.toml` (el repo tiene placeholder)
+- `database_id` reales de D1 para `env.preview` y `env.production` en `frontend/wrangler.toml`
 
 Si tu SMTP ya esta cargado hoy en Cloudflare Pages y funciona para confirmaciones, no necesitas cambiar `SMTP_*`.
 
@@ -56,6 +56,12 @@ Desde la raiz del proyecto:
 
 ```bash
 npm run start:functions
+```
+
+Si quieres levantar localmente con la configuracion de `env.preview`:
+
+```bash
+npm run start:functions:preview
 ```
 
 ### 4) Levantar el frontend Angular
@@ -91,6 +97,20 @@ Al conectar el repo `Hastu004/funkids`, usar exactamente:
 - Build output directory: `dist/frontend/browser`
 - Root directory: `frontend`
 
+### Branch control (exacto para este proyecto)
+
+Configura en `Settings -> Builds & deployments -> Branch control`:
+
+- Production branch: `main`
+- Preview branch control: `Custom branches`
+- Include branches: `dev`
+- Exclude branches: (vacio, o lo que no quieras desplegar)
+
+Con esto:
+
+- Push a `main` -> despliegue a produccion.
+- Push a `dev` -> despliegue a ambiente de desarrollo (Preview).
+
 ### API publicada en Cloudflare
 
 Con esa configuracion, Cloudflare publica:
@@ -109,22 +129,58 @@ El frontend ya viene configurado para usar:
 
 - `/api` cuando esta desplegado en Cloudflare
 
-### Variables requeridas en Cloudflare Pages (integracion)
+### Ambientes: desarrollo y produccion
 
-En `Settings -> Variables and Secrets`, define para `Production` y `Preview`:
+En Cloudflare Pages, los dos ambientes oficiales de configuracion son:
+
+- `Preview` (usalo como desarrollo/staging)
+- `Production`
+
+Este repo ya queda preparado en `frontend/wrangler.toml` con:
+
+- `env.preview` -> DB y variables para desarrollo
+- `env.production` -> DB y variables para produccion
+
+Importante:
+
+- En Pages, la configuracion es por `preview` y `production`, no por rama especifica.
+- El branch `main` debe seguir como rama de produccion.
+- Tu branch de desarrollo (por ejemplo `develop`) se desplegara como `Preview`.
+
+### Variables requeridas en Cloudflare Pages
+
+En `Settings -> Variables and Secrets`, define por separado para cada ambiente:
+
+Preview (desarrollo):
 
 ```text
 TRANSBANK_ENVIRONMENT=integration
 TRANSBANK_COMMERCE_CODE=597055555532
 TRANSBANK_API_KEY=579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C
-PUBLIC_APP_URL=https://funkids.cl
+PUBLIC_APP_URL=https://<tu-subdominio-preview>.pages.dev
 ```
 
-Y en `Settings -> Bindings`, conecta D1 con:
+Production:
 
 ```text
-Binding name: DB
-Database: <tu base D1 real>
+TRANSBANK_ENVIRONMENT=production
+TRANSBANK_COMMERCE_CODE=<tu-commerce-code-produccion>
+TRANSBANK_API_KEY=<tu-api-key-produccion>
+PUBLIC_APP_URL=https://<tu-dominio-produccion>
+```
+
+La configuracion de D1 se toma de `frontend/wrangler.toml` en:
+
+- `[[env.preview.d1_databases]]`
+- `[[env.production.d1_databases]]`
+
+### Migraciones por ambiente
+
+Desde la raiz del proyecto:
+
+```text
+npm run d1:migrate:preview
+npm run d1:migrate:production
 ```
 
 ### Advertencias importantes

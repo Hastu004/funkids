@@ -6,7 +6,10 @@
   "scripts": {
     "start:frontend": "NG_CLI_ANALYTICS=false npm --prefix frontend run start",
     "start:functions": "npm --prefix frontend run functions:dev",
+    "start:functions:preview": "npm --prefix frontend run functions:dev:preview",
     "build:frontend": "NG_CLI_ANALYTICS=false npm --prefix frontend run build",
-    "d1:migrate:local": "npm --prefix frontend run d1:migrate:local"
+    "d1:migrate:local": "npm --prefix frontend run d1:migrate:local",
+    "d1:migrate:preview": "npm --prefix frontend run d1:migrate:preview",
+    "d1:migrate:production": "npm --prefix frontend run d1:migrate:production"
   }
 }

@@ -13,7 +13,20 @@ Framework preset: Angular
 Build command: npm run build
 Build output directory: dist/frontend/browser
 Root directory: frontend
+Production branch: main
 ```
+
+Branch control for this repository:
+
+```text
+Preview branch control: Custom branches
+Include branches: dev
+```
+
+Behavior:
+
+- `main` => production deployments
+- `dev` => preview (development) deployments
 
 This Pages project also includes backend endpoints through `Cloudflare Pages Functions` stored in:
 
@@ -35,23 +48,44 @@ Important:
 - Do not use the Worker flow for this Angular app as-is.
 - The Pages Functions API is the backend used by the deployed frontend.
 
+### Development and production environments
+
+Cloudflare Pages supports two deployment environments for configuration overrides:
+
+- `Preview` (use this as development/staging)
+- `Production`
+
+This repository is configured in `wrangler.toml` with:
+
+- `env.preview` for development settings
+- `env.production` for production settings
+
 ### Required variables for Webpay integration
 
-In `Settings -> Variables and Secrets` (for both `Production` and `Preview`):
+Set values separately in `Settings -> Variables and Secrets`:
+
+Preview (development):
 
 ```text
 TRANSBANK_ENVIRONMENT=integration
 TRANSBANK_COMMERCE_CODE=597055555532
 TRANSBANK_API_KEY=579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C
-PUBLIC_APP_URL=https://funkids.cl
+PUBLIC_APP_URL=https://<your-preview-subdomain>.pages.dev
 ```
 
-In `Settings -> Bindings`, add:
+Production:
 
 ```text
-Binding name: DB
-Database: <your real D1 database>
+TRANSBANK_ENVIRONMENT=production
+TRANSBANK_COMMERCE_CODE=<your-production-commerce-code>
+TRANSBANK_API_KEY=<your-production-api-key>
+PUBLIC_APP_URL=https://<your-production-domain>
 ```
+
+For D1, configure the IDs in `wrangler.toml`:
+
+- `[[env.preview.d1_databases]]`
+- `[[env.production.d1_databases]]`
 
 ## Local development
 
@@ -75,11 +109,11 @@ The example file is already configured for Transbank Webpay integration environm
 
 Values you must set with your own account/infrastructure:
 
-- `PUBLIC_APP_URL`
+- `PUBLIC_APP_URL` (for local development, keep `http://localhost:8788`)
 - `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`
 - `SELLER_EMAIL`, `SELLER_PASSWORD` (optional seller role)
 - `SMTP_*`
-- `database_id` in `wrangler.toml`
+- `database_id` values in `wrangler.toml` (`env.preview` and `env.production`)
 
 If SMTP is already configured in your Cloudflare Pages project and purchase confirmations are working, you can keep the same `SMTP_*` values.
 
@@ -91,12 +125,25 @@ Run from `frontend/`:
 npm run d1:migrate:local
 ```
 
+For cloud environments:
+
+```bash
+npm run d1:migrate:preview
+npm run d1:migrate:production
+```
+
 ### 3) Start Functions locally
 
 Run from `frontend/`:
 
 ```bash
 npm run functions:dev
+```
+
+If you want to run local Pages Functions using `env.preview` bindings:
+
+```bash
+npm run functions:dev:preview
 ```
 
 ### 4) Start Angular dev server
