@@ -42,6 +42,26 @@ When deployed, the app uses:
 - `/api/admin/*`
 - `/api/webpay/*`
 
+### Admin benefit module (Transbank)
+
+The admin/seller panel includes a dedicated benefit management flow:
+
+- Search by `RUT`, `name`, or `email`
+- Separate tabs:
+  - `Beneficio disponible`
+  - `Beneficio consumido`
+- Confirmation modal before consuming the benefit
+- On consume:
+  - updates benefit fields in `orders`
+  - sends notification email to customer
+  - sends backup notification emails
+
+Benefit search endpoint supports:
+
+```text
+GET /api/admin/benefits/search?q=<text>&status=available|consumed
+```
+
 Important:
 
 - Do not deploy the repository root as a Pages build for the frontend.
@@ -86,6 +106,27 @@ For D1, configure the IDs in `wrangler.toml`:
 
 - `[[env.preview.d1_databases]]`
 - `[[env.production.d1_databases]]`
+
+### Required secrets for admin login and SMTP
+
+Set in both `Preview` and `Production`:
+
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+- `ADMIN_SESSION_SECRET`
+- `SELLER_EMAIL`
+- `SELLER_PASSWORD`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
+- `SMTP_FROM_EMAIL`
+
+If `ADMIN_*` is missing, `/api/admin/login` returns:
+
+```text
+Configuracion de administrador incompleta en el servidor.
+```
 
 ## Local development
 
