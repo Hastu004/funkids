@@ -7,8 +7,8 @@
     "functions:dev": "npx --yes wrangler@4 pages dev . --port 8788",
     "functions:dev:preview": "npx --yes wrangler@4 pages dev . --env preview --port 8788",
     "d1:migrate:local": "npx --yes wrangler@4 d1 migrations apply funkids-db-local --local",
-    "d1:migrate:preview": "npx --yes wrangler@4 d1 migrations apply funkids-db-dev --env preview",
-    "d1:migrate:production": "npx --yes wrangler@4 d1 migrations apply funkids-db-prod --env production",
+    "d1:migrate:preview": "npx --yes wrangler@4 d1 migrations apply funkids-db-dev --env preview --remote",
+    "d1:migrate:production": "npx --yes wrangler@4 d1 migrations apply sorteo_funkids --env production --remote",
     "build": "NG_CLI_ANALYTICS=false ng build",
     "watch": "NG_CLI_ANALYTICS=false ng build --watch --configuration development",
     "test": "ng test"

@@ -9,6 +9,8 @@ export type ManualSaleMethod = 'cash' | 'transfer' | 'debit' | 'credit';
 const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
 const TRANSBANK_BENEFIT_MINUTES = 10;
 const TRANSBANK_BENEFIT_MESSAGE = `Compras online por Transbank incluyen ${TRANSBANK_BENEFIT_MINUTES} minutos gratis en FunKids.`;
+const TRANSBANK_INTEGRATION_COMMERCE_CODE = '597055555532';
+const TRANSBANK_INTEGRATION_API_KEY = '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C';
 
 export interface PurchasePayload {
   fullName?: string;
@@ -121,6 +123,8 @@ interface EmailBrandAssets {
 
 interface PagesEnv {
   DB?: D1Database;
+  APP_ENV?: string;
+  CF_PAGES_BRANCH?: string;
   ADMIN_EMAIL?: string;
   ADMIN_PASSWORD?: string;
   ADMIN_SESSION_SECRET?: string;
@@ -1388,21 +1392,32 @@ function getDb(env: unknown): { db: D1Database } | { error: Response } {
 
 function getTransbankConfig(env: unknown, request: Request): TransbankConfig | { error: Response } {
   const source = (env ?? {}) as PagesEnv;
-  const environment = String(source.TRANSBANK_ENVIRONMENT ?? 'integration').trim().toLowerCase();
-  const commerceCode = String(source.TRANSBANK_COMMERCE_CODE ?? '').trim();
-  const apiKey = String(source.TRANSBANK_API_KEY ?? '').trim();
+  const appEnv = String(source.APP_ENV ?? 'development').trim().toLowerCase();
+  const pagesBranch = String(source.CF_PAGES_BRANCH ?? '').trim().toLowerCase();
+  const isProductionContext = appEnv === 'production' || pagesBranch === 'main';
+  const configuredEnvironment = String(source.TRANSBANK_ENVIRONMENT ?? (isProductionContext ? 'production' : 'integration'))
+    .trim()
+    .toLowerCase();
   const requestOrigin = new URL(request.url).origin;
   const appUrl = normalizePublicAppUrl(String(source.PUBLIC_APP_URL ?? requestOrigin));
 
-  if (environment !== 'integration' && environment !== 'production') {
+  if (configuredEnvironment !== 'integration' && configuredEnvironment !== 'production') {
     return { error: jsonError('TRANSBANK_ENVIRONMENT debe ser "integration" o "production".', 500) };
   }
 
+  const environment: 'integration' | 'production' = isProductionContext ? configuredEnvironment : 'integration';
+  const commerceCode =
+    environment === 'integration'
+      ? TRANSBANK_INTEGRATION_COMMERCE_CODE
+      : String(source.TRANSBANK_COMMERCE_CODE ?? '').trim();
+  const apiKey =
+    environment === 'integration' ? TRANSBANK_INTEGRATION_API_KEY : String(source.TRANSBANK_API_KEY ?? '').trim();
+
   const missingTransbankVars: string[] = [];
-  if (!commerceCode) {
+  if (environment === 'production' && !commerceCode) {
     missingTransbankVars.push('TRANSBANK_COMMERCE_CODE');
   }
-  if (!apiKey) {
+  if (environment === 'production' && !apiKey) {
     missingTransbankVars.push('TRANSBANK_API_KEY');
   }
 

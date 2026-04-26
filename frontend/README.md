@@ -68,10 +68,10 @@ Preview (development):
 
 ```text
 TRANSBANK_ENVIRONMENT=integration
-TRANSBANK_COMMERCE_CODE=597055555532
-TRANSBANK_API_KEY=579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C
 PUBLIC_APP_URL=https://<your-preview-subdomain>.pages.dev
 ```
+
+In preview/development, Functions force Transbank integration mode and use official integration credentials, so production credentials are never used there.
 
 Production:
 

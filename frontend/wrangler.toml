@@ -17,19 +17,21 @@ APP_ENV = "development"
 # Cloudflare Pages Preview (recommended as development/staging)
 [env.preview.vars]
 APP_ENV = "development"
+TRANSBANK_ENVIRONMENT = "integration"
 
 [[env.preview.d1_databases]]
 binding = "DB"
 database_name = "funkids-db-dev"
-database_id = "REPLACE_WITH_DEV_D1_DATABASE_ID"
+database_id = "83fac6f7-789e-4b8b-b6e2-9c0837113fc0"
 migrations_dir = "d1/migrations"
 
 # Cloudflare Pages Production
 [env.production.vars]
 APP_ENV = "production"
+TRANSBANK_ENVIRONMENT = "production"
 
 [[env.production.d1_databases]]
 binding = "DB"
-database_name = "funkids-db-prod"
-database_id = "REPLACE_WITH_PROD_D1_DATABASE_ID"
+database_name = "sorteo_funkids"
+database_id = "7ae4550c-81df-40ba-bd96-c5933f531ed7"
 migrations_dir = "d1/migrations"
