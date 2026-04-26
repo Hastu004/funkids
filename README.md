@@ -155,10 +155,10 @@ Preview (desarrollo):
 
 ```text
 TRANSBANK_ENVIRONMENT=integration
-TRANSBANK_COMMERCE_CODE=597055555532
-TRANSBANK_API_KEY=579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C
 PUBLIC_APP_URL=https://<tu-subdominio-preview>.pages.dev
 ```
+
+En `preview/desarrollo`, Functions fuerza modo `integration` y usa credenciales oficiales de integracion, por lo que no se usan credenciales reales en ese ambiente.
 
 Production:
 
