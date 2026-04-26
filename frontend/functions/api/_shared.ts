@@ -305,6 +305,8 @@ interface AdminBenefitSearchMatch {
   benefit: OrderBenefitState;
 }
 
+type AdminBenefitSearchStatus = 'available' | 'consumed' | 'all';
+
 const packages = [
   { id: 'pkg_2000' as const, amount: 2000, participations: 1, label: '$2.000 · 1 ticket' },
   { id: 'pkg_5000' as const, amount: 5000, participations: 3, label: '$5.000 · 3 tickets' },
@@ -993,7 +995,7 @@ export async function resendAdminOrderReceipt(request: Request, orderId: string,
   }
 }
 
-export async function searchAdminBenefits(request: Request, query: string, env: unknown) {
+export async function searchAdminBenefits(request: Request, query: string, status: string, env: unknown) {
   const dbResult = getDb(env);
   if ('error' in dbResult) {
     return dbResult.error;
@@ -1011,30 +1013,52 @@ export async function searchAdminBenefits(request: Request, query: string, env: 
     return auth.error;
   }
 
-  const search = query.trim().toLowerCase();
-  if (search.length < 2) {
-    return jsonError('Ingresa al menos 2 caracteres para buscar clientes.', 400);
+  const normalizedStatus = normalizeAdminBenefitSearchStatus(status);
+  if (!normalizedStatus) {
+    return jsonError('Filtro de beneficio invalido. Usa: available, consumed o all.', 400);
   }
 
+  const search = query.trim().toLowerCase();
   const normalizedRutSearch = normalizeRutForSearch(query);
   const orders = await fetchOrders(dbResult.db, { status: 'paid' });
-  const matches = orders
-    .filter((order) => {
-      const fullName = order.participant.fullName.toLowerCase();
-      const email = (order.participant.email ?? '').toLowerCase();
-      const rut = normalizeRutForSearch(order.participant.rut ?? '');
+  const eligibleMatches = orders
+    .map((order) => mapOrderToBenefitSearchMatch(order))
+    .filter((match) => match.benefit.eligible)
+    .filter((match) => {
+      if (!search) {
+        return true;
+      }
 
-      return (
-        fullName.includes(search) ||
-        email.includes(search) ||
-        (normalizedRutSearch.length > 0 && rut.includes(normalizedRutSearch))
-      );
+      const fullName = match.participant.fullName.toLowerCase();
+      const email = (match.participant.email ?? '').toLowerCase();
+      const rut = normalizeRutForSearch(match.participant.rut ?? '');
+
+      return fullName.includes(search) || email.includes(search) || (normalizedRutSearch.length > 0 && rut.includes(normalizedRutSearch));
+    });
+
+  const matches = eligibleMatches
+    .filter((match) => {
+      if (normalizedStatus === 'available') {
+        return match.benefit.available;
+      }
+
+      if (normalizedStatus === 'consumed') {
+        return match.benefit.isConsumed;
+      }
+
+      return true;
     })
     .slice(0, 50)
-    .map((order) => mapOrderToBenefitSearchMatch(order));
+    .map((match) => match);
 
   return Response.json({
     query: query.trim(),
+    status: normalizedStatus,
+    summary: {
+      available: eligibleMatches.filter((match) => match.benefit.available).length,
+      consumed: eligibleMatches.filter((match) => match.benefit.isConsumed).length,
+      totalEligible: eligibleMatches.length,
+    },
     matches,
   });
 }
@@ -2326,6 +2350,15 @@ function mapOrderToBenefitSearchMatch(order: OrderRecord): AdminBenefitSearchMat
     },
     benefit: buildOrderBenefitState(order),
   };
+}
+
+function normalizeAdminBenefitSearchStatus(value: string): AdminBenefitSearchStatus | null {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'available' || normalized === 'consumed' || normalized === 'all') {
+    return normalized;
+  }
+
+  return null;
 }
 
 function buildOrderBenefitState(order: OrderRecord): OrderBenefitState {

@@ -8,6 +8,7 @@ const apiBaseUrl = '/api';
 const ADMIN_STORAGE_KEY = 'funkids_admin_session';
 export type AdminRole = 'admin' | 'seller';
 export type ManualSaleMethod = 'cash' | 'transfer' | 'debit' | 'credit';
+export type AdminBenefitTab = 'available' | 'consumed';
 
 export interface AdminProfile {
   name: string;
@@ -128,6 +129,12 @@ export interface AdminBenefitSearchMatch {
 
 export interface AdminBenefitSearchResponse {
   query: string;
+  status: 'available' | 'consumed' | 'all';
+  summary: {
+    available: number;
+    consumed: number;
+    totalEligible: number;
+  };
   matches: AdminBenefitSearchMatch[];
 }
 
@@ -262,8 +269,8 @@ export class AdminApi {
     );
   }
 
-  searchBenefits(query: string) {
-    const params = new HttpParams().set('q', query);
+  searchBenefits(query: string, status: AdminBenefitTab) {
+    const params = new HttpParams().set('q', query).set('status', status);
     return this.http.get<AdminBenefitSearchResponse>(`${apiBaseUrl}/admin/benefits/search`, {
       headers: this.buildHeaders(),
       params,

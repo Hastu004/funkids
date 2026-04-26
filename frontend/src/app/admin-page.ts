@@ -3,6 +3,7 @@ import { Component, computed, inject, OnDestroy, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators, type FormControl } from '@angular/forms';
 import {
   AdminApi,
+  type AdminBenefitTab,
   type AdminBenefitSearchMatch,
   type AdminOrder,
   type AdminRaffleWinner,
@@ -12,7 +13,12 @@ import {
 import { LandingApi } from './landing-api';
 
 const PHONE_PATTERN = /^\+56 9 \d{4} \d{4}$/;
-const MIN_BENEFIT_SEARCH_CHARS = 2;
+
+interface BenefitSearchSummary {
+  available: number;
+  consumed: number;
+  totalEligible: number;
+}
 
 interface WinnerPreview {
   fullName: string;
@@ -83,6 +89,25 @@ interface SaleMethodOption {
             Solo las compras online con Transbank tienen 10 minutos gratis en FunKids. Busca por RUT, nombre o correo.
           </p>
 
+          <div class="benefit-tabs">
+            <button
+              class="benefit-tab"
+              type="button"
+              [class.benefit-tab--active]="benefitTab() === 'available'"
+              (click)="setBenefitTab('available')"
+            >
+              Beneficio disponible ({{ benefitSummary().available }})
+            </button>
+            <button
+              class="benefit-tab"
+              type="button"
+              [class.benefit-tab--active]="benefitTab() === 'consumed'"
+              (click)="setBenefitTab('consumed')"
+            >
+              Beneficio consumido ({{ benefitSummary().consumed }})
+            </button>
+          </div>
+
           <form class="benefit-search-form" (ngSubmit)="searchBenefits()">
             <label class="field">
               <span>Cliente</span>
@@ -95,7 +120,11 @@ interface SaleMethodOption {
             </label>
 
             <button class="button primary admin-button" type="submit" [disabled]="isSearchingBenefits()">
-              {{ isSearchingBenefits() ? 'Buscando...' : 'Buscar' }}
+              {{ isSearchingBenefits() ? 'Buscando...' : 'Filtrar' }}
+            </button>
+
+            <button class="button secondary admin-button" type="button" (click)="clearBenefitSearch()" [disabled]="isSearchingBenefits()">
+              Limpiar
             </button>
           </form>
 
@@ -154,7 +183,7 @@ interface SaleMethodOption {
           </div>
 
           <div class="admin-empty-state" *ngIf="hasBenefitSearchResults() && benefitSearchResults().length === 0">
-            No encontramos clientes con ese criterio.
+            {{ getBenefitEmptyStateMessage() }}
           </div>
         </section>
 
@@ -724,7 +753,9 @@ export class AdminPage implements OnDestroy {
   protected readonly landing = computed(() => this.landingApi.landing());
   protected readonly searchTerm = signal('');
   protected readonly benefitSearchTerm = signal('');
+  protected readonly benefitTab = signal<AdminBenefitTab>('available');
   protected readonly benefitSearchResults = signal<AdminBenefitSearchMatch[]>([]);
+  protected readonly benefitSummary = signal<BenefitSearchSummary>({ available: 0, consumed: 0, totalEligible: 0 });
   protected readonly hasBenefitSearchResults = signal(false);
   protected readonly benefitSearchError = signal('');
   protected readonly channelFilter = signal<'all' | 'webpay' | 'cash'>('all');
@@ -1190,27 +1221,39 @@ export class AdminPage implements OnDestroy {
     this.benefitSearchError.set('');
   }
 
+  protected setBenefitTab(tab: AdminBenefitTab) {
+    if (this.benefitTab() === tab) {
+      return;
+    }
+
+    this.benefitTab.set(tab);
+    this.searchBenefits();
+  }
+
+  protected clearBenefitSearch() {
+    this.benefitSearchTerm.set('');
+    this.benefitSearchError.set('');
+    this.searchBenefits();
+  }
+
   protected searchBenefits() {
     const search = this.benefitSearchTerm().trim();
     this.hasBenefitSearchResults.set(false);
     this.benefitSearchResults.set([]);
     this.benefitSearchError.set('');
 
-    if (search.length < MIN_BENEFIT_SEARCH_CHARS) {
-      this.benefitSearchError.set(`Ingresa al menos ${MIN_BENEFIT_SEARCH_CHARS} caracteres para buscar.`);
-      return;
-    }
-
     this.isSearchingBenefits.set(true);
-    this.adminApi.searchBenefits(search).subscribe({
+    this.adminApi.searchBenefits(search, this.benefitTab()).subscribe({
       next: (response) => {
         this.isSearchingBenefits.set(false);
         this.hasBenefitSearchResults.set(true);
+        this.benefitSummary.set(response.summary);
         this.benefitSearchResults.set(response.matches);
       },
       error: (error) => {
         this.isSearchingBenefits.set(false);
         this.hasBenefitSearchResults.set(false);
+        this.benefitSummary.set({ available: 0, consumed: 0, totalEligible: 0 });
         this.benefitSearchError.set(error.error?.message ?? 'No fue posible buscar clientes.');
       },
     });
@@ -1233,9 +1276,7 @@ export class AdminPage implements OnDestroy {
     this.adminApi.consumeBenefit(match.orderId).subscribe({
       next: (response) => {
         this.consumingBenefitOrderId.set(null);
-        this.benefitSearchResults.update((rows) =>
-          rows.map((item) => (item.orderId === response.match.orderId ? response.match : item)),
-        );
+        this.searchBenefits();
         this.showToast('success', 'Beneficio consumido', response.message);
       },
       error: (error) => {
@@ -1263,6 +1304,19 @@ export class AdminPage implements OnDestroy {
     }
 
     return 'No aplica';
+  }
+
+  protected getBenefitEmptyStateMessage() {
+    const search = this.benefitSearchTerm().trim();
+    if (this.benefitTab() === 'available') {
+      return search
+        ? 'No encontramos clientes con beneficio disponible para ese criterio.'
+        : 'No hay clientes con beneficio disponible por consumir.';
+    }
+
+    return search
+      ? 'No encontramos clientes con beneficio consumido para ese criterio.'
+      : 'Aun no se han registrado consumos de beneficio.';
   }
 
   protected setSearch(value: string) {
@@ -1310,6 +1364,8 @@ export class AdminPage implements OnDestroy {
     this.hasBenefitSearchResults.set(false);
     this.benefitSearchError.set('');
     this.benefitSearchTerm.set('');
+    this.benefitSummary.set({ available: 0, consumed: 0, totalEligible: 0 });
+    this.benefitTab.set('available');
     this.adminApi.logout();
   }
 
@@ -1426,6 +1482,7 @@ export class AdminPage implements OnDestroy {
     this.adminApi.loadDashboard().subscribe({
       next: () => {
         this.currentPage.set(1);
+        this.searchBenefits();
       },
       error: (error) => {
         const status = Number(error?.status ?? 0);
