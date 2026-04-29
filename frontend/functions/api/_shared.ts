@@ -1663,13 +1663,15 @@ function getSmtpConfig(env: unknown): SmtpConfig {
   const password = String(source.SMTP_PASSWORD ?? '').trim();
   const fromEmail = String(source.SMTP_FROM_EMAIL ?? username).trim();
   const fromName = String(source.SMTP_FROM_NAME ?? 'FunKids').trim() || 'FunKids';
-  const secureRaw = String(source.SMTP_SECURE ?? 'true').trim().toLowerCase();
+  const secureRaw = String(source.SMTP_SECURE ?? '').trim().toLowerCase();
   const helloHost = String(source.SMTP_HELLO_HOST ?? fromEmail.split('@')[1] ?? 'funkids.cl').trim() || 'funkids.cl';
   const timeoutMs = Number.parseInt(String(source.SMTP_TIMEOUT_MS ?? '12000').trim(), 10);
 
   if (!host || !Number.isFinite(port) || port <= 0 || !username || !password || !fromEmail) {
     throw new Error('Falta configurar SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD o SMTP_FROM_EMAIL.');
   }
+
+  const secure = resolveSmtpSecure(secureRaw, port);
 
   return {
     host,
@@ -1678,10 +1680,22 @@ function getSmtpConfig(env: unknown): SmtpConfig {
     password,
     fromEmail,
     fromName,
-    secure: secureRaw !== 'false',
+    secure,
     helloHost,
     timeoutMs: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 12000,
   };
+}
+
+function resolveSmtpSecure(value: string, port: number) {
+  if (['true', 'on', 'ssl', 'tls'].includes(value)) {
+    return true;
+  }
+
+  if (['false', 'off', 'starttls'].includes(value)) {
+    return false;
+  }
+
+  return port === 465;
 }
 
 function getEmailBrandAssets(env: unknown): EmailBrandAssets {
@@ -3203,7 +3217,7 @@ async function sendSmtpEmail(
     html: string;
   },
 ) {
-  const socket = connect(
+  let socket = connect(
     {
       hostname: config.host,
       port: config.port,
@@ -3219,14 +3233,36 @@ async function sendSmtpEmail(
     `No fue posible establecer conexion con ${config.host}:${config.port}.`,
   );
 
-  const writer = socket.writable.getWriter();
-  const reader = socket.readable.getReader();
-  const client = new SmtpClient(reader, writer, config.timeoutMs);
+  let writer = socket.writable.getWriter();
+  let reader = socket.readable.getReader();
+  let client = new SmtpClient(reader, writer, config.timeoutMs);
 
   try {
     await client.expect(220, 'No hubo saludo inicial del servidor SMTP.');
     await client.send(`EHLO ${config.helloHost}`);
     await client.expect(250, 'El servidor SMTP no acepto EHLO.');
+
+    if (!config.secure) {
+      await client.send('STARTTLS');
+      await client.expect(220, 'El servidor SMTP no acepto STARTTLS.');
+
+      reader.releaseLock();
+      writer.releaseLock();
+
+      socket = socket.startTls();
+      await withTimeout(
+        socket.opened,
+        config.timeoutMs,
+        `No fue posible establecer TLS con ${config.host}:${config.port}.`,
+      );
+
+      writer = socket.writable.getWriter();
+      reader = socket.readable.getReader();
+      client = new SmtpClient(reader, writer, config.timeoutMs);
+
+      await client.send(`EHLO ${config.helloHost}`);
+      await client.expect(250, 'El servidor SMTP no acepto EHLO despues de STARTTLS.');
+    }
 
     await client.send('AUTH LOGIN');
     await client.expect(334, 'El servidor SMTP no acepto AUTH LOGIN.');
