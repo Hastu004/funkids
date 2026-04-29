@@ -984,9 +984,11 @@ export async function resendAdminOrderReceipt(request: Request, orderId: string,
 
   try {
     const delivery = await deliverOrderReceipt(dbResult.db, env, orderId, { force: true });
+    const internalDelivery = await deliverInternalNotificationEmail(dbResult.db, env, orderId, { force: true });
     return Response.json({
-      message: `Correo enviado correctamente a ${delivery.recipient}.`,
+      message: `Correo enviado a ${delivery.recipient} y notificacion interna enviada a ${internalDelivery.recipients}.`,
       deliveredAt: delivery.sentAt,
+      internalDeliveredAt: internalDelivery.sentAt,
       orderId,
     });
   } catch (error) {
