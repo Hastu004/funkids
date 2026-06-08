@@ -307,13 +307,16 @@ interface AdminBenefitSearchMatch {
 
 type AdminBenefitSearchStatus = 'available' | 'consumed' | 'all';
 
+
 const packages = [
-  { id: 'pkg_2000' as const, amount: 2000, participations: 1, label: '$2.000 · 1 ticket' },
-  { id: 'pkg_5000' as const, amount: 5000, participations: 3, label: '$5.000 · 3 tickets' },
+  { id: 'pkg_2000' as const, amount: 1000, participations: 1, label: '$1.000 · 1 ticket' },
+  { id: 'pkg_5000' as const, amount: 2000, participations: 3, label: '2.000 · 3 tickets' },
+  { id: 'pkg_4000' as const, amount: 4000, participations: 4, label: '4.000 · 5 tickets' },
   { id: 'pkg_15000' as const, amount: 15000, participations: 10, label: '$15.000 · 10 tickets' },
   { id: 'pkg_30000' as const, amount: 30000, participations: 25, label: '$30.000 · 25 tickets' },
 ];
-const RAFFLE_MAX_PARTICIPATIONS = 1000;
+
+const RAFFLE_MAX_PARTICIPATIONS = 10000;
 
 const SALES_CLOSE_AT = Date.parse('2026-08-01T00:00:00-04:00');
 const SALES_CLOSE_MESSAGE = 'La venta de tickets finalizo el 31 de julio de 2026 a las 23:59 (hora de Chile).';
