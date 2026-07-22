@@ -42,6 +42,10 @@
   color: var(--fk-sky-deep);
 }
 
+.rewards-link {
+  color: #b76a00;
+}
+
 .brand {
   min-height: auto;
 }
