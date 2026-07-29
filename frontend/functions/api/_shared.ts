@@ -1453,7 +1453,7 @@ function getTransbankConfig(env: unknown, request: Request): TransbankConfig | {
   if (missingTransbankVars.length > 0) {
     return {
       error: jsonError(
-        `Faltan variables de Transbank en el servidor: ${missingTransbankVars.join(', ')}. Revisa Cloudflare Pages en Production y Preview.`,
+        `Faltan variables de Transbank en el servidor: ${missingTransbankVars.join(', ')}. Revisa Cloudflare Pages en Production.`,
         500,
       ),
     };
