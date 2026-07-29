@@ -1,7 +1,7 @@
 import { connect } from 'cloudflare:sockets';
 
 export type PaymentMethod = 'transbank' | 'cash' | 'transfer' | 'debit' | 'credit';
-export type PackageId = 'pkg_2000' | 'pkg_5000' | 'pkg_15000' | 'pkg_30000';
+export type PackageId = 'pkg_2000' | 'pkg_5000' | 'pkg_4000' | 'pkg_15000' | 'pkg_30000';
 export type SaleChannel = 'webpay' | 'cash';
 export type AdminRole = 'admin' | 'seller';
 export type ManualSaleMethod = 'cash' | 'transfer' | 'debit' | 'credit';
@@ -310,8 +310,8 @@ type AdminBenefitSearchStatus = 'available' | 'consumed' | 'all';
 
 const packages = [
   { id: 'pkg_2000' as const, amount: 1000, participations: 1, label: '$1.000 · 1 ticket' },
-  { id: 'pkg_5000' as const, amount: 2000, participations: 3, label: '2.000 · 3 tickets' },
-  { id: 'pkg_4000' as const, amount: 4000, participations: 4, label: '4.000 · 5 tickets' },
+  { id: 'pkg_5000' as const, amount: 2000, participations: 3, label: '$2.000 · 3 tickets' },
+  { id: 'pkg_4000' as const, amount: 4000, participations: 5, label: '$4.000 · 5 tickets' },
   { id: 'pkg_15000' as const, amount: 15000, participations: 10, label: '$15.000 · 10 tickets' },
   { id: 'pkg_30000' as const, amount: 30000, participations: 25, label: '$30.000 · 25 tickets' },
 ];
