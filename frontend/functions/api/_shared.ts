@@ -415,8 +415,8 @@ export function getLandingData() {
         title: 'IV. Mecanica de participacion',
         paragraphs: [
           'La participacion se obtiene mediante la compra de participaciones digitales bajo las siguientes modalidades.',
-          '$2.000: 1 participacion. $5.000: 3 participaciones. $15.000: 10 participaciones. $30.000: 25 participaciones.',
-          'El maximo total sera de 1.000 participaciones.',
+          '$1.000: 1 participacion. $2.000: 3 participaciones. $4.000: 5 participaciones. $15.000: 10 participaciones. $30.000: 25 participaciones.',
+          'El maximo total sera de 10.000 participaciones.',
           'Cada participacion sera registrada en una base de datos unica y numerada.',
         ],
       },
