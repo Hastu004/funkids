@@ -317,8 +317,6 @@ const packages = [
 ];
 
 const RAFFLE_MAX_PARTICIPATIONS = 10000;
-const EXISTING_ORDER_TICKET_MULTIPLIER = 10;
-const EXISTING_ORDER_TICKET_MULTIPLIER_CUTOFF = Date.parse('2026-07-31T19:10:55-04:00');
 
 const SALES_CLOSE_AT = Date.parse('2026-08-01T00:00:00-04:00');
 const SALES_CLOSE_MESSAGE = 'La venta de tickets finalizo el 31 de julio de 2026 a las 23:59 (hora de Chile).';
@@ -1193,14 +1191,6 @@ export async function updateAdminOrder(
     return jsonError('Debes seleccionar una modalidad de tickets.', 400);
   }
 
-  const ticketAdjustment = await dbResult.db
-    .prepare('SELECT multiplier FROM order_ticket_adjustments WHERE order_id = ? LIMIT 1')
-    .bind(currentOrder.id)
-    .first<{ multiplier: number }>();
-  const ticketMultiplier = Math.max(1, Number(ticketAdjustment?.multiplier ?? 1));
-  const selectedParticipations = selectedPackage.participations * ticketMultiplier;
-  const selectedPackageLabel = selectedPackage.label.replace(/\d+\s+tickets?$/i, `${selectedParticipations} tickets`);
-
   const fullName = payload.fullName?.trim();
   if (!fullName) {
     return jsonError('El nombre es obligatorio.', 400);
@@ -1227,7 +1217,7 @@ export async function updateAdminOrder(
 
   let ticketNumbers: string[];
   try {
-    ticketNumbers = await allocateTicketNumbers(dbResult.db, selectedParticipations, {
+    ticketNumbers = await allocateTicketNumbers(dbResult.db, selectedPackage.participations, {
       excludeOrderId: currentOrder.id,
     });
   } catch (error) {
@@ -1249,8 +1239,8 @@ export async function updateAdminOrder(
     order: {
       ...currentOrder.order,
       packageId: selectedPackage.id,
-      packageLabel: selectedPackageLabel,
-      participations: selectedParticipations,
+      packageLabel: selectedPackage.label,
+      participations: selectedPackage.participations,
       ticketNumbers,
       amount: selectedPackage.amount,
     },
@@ -1546,21 +1536,12 @@ async function ensureOrdersSchema(db: D1Database) {
         payment_label TEXT NOT NULL
       )
     `),
-    db.prepare(`
-      CREATE TABLE IF NOT EXISTS order_ticket_adjustments (
-        order_id TEXT PRIMARY KEY,
-        multiplier INTEGER NOT NULL,
-        applied_at TEXT NOT NULL,
-        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
-      )
-    `),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_channel ON orders(channel)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_email ON orders(email)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_rut ON orders(rut)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_benefit_consumed_at ON orders(benefit_consumed_at)'),
-    db.prepare('CREATE INDEX IF NOT EXISTS idx_order_ticket_adjustments_applied_at ON order_ticket_adjustments(applied_at)'),
   ]);
 
   const tableInfo = await db.prepare('PRAGMA table_info(orders)').all<{ name: string }>();
@@ -2122,98 +2103,75 @@ async function ensurePaidOrderTicketsConsistency(db: D1Database) {
   await ensureOrdersSchema(db);
 
   const paidOrders = await db
-    .prepare(`
-      SELECT
-        orders.id,
-        orders.created_at,
-        orders.package_label,
-        orders.participations,
-        order_ticket_adjustments.multiplier AS applied_multiplier
-      FROM orders
-      LEFT JOIN order_ticket_adjustments ON order_ticket_adjustments.order_id = orders.id
-      WHERE orders.status = ?
-    `)
+    .prepare('SELECT id, package_id, package_label, participations FROM orders WHERE status = ?')
     .bind('paid')
     .all<{
       id: string;
-      created_at: string;
+      package_id: PackageId;
       package_label: string;
       participations: number;
-      applied_multiplier: number | null;
     }>();
 
   for (const order of paidOrders.results ?? []) {
     const currentCount = Math.max(0, Number(order.participations ?? 0));
-    const createdAt = Date.parse(order.created_at);
-    const shouldMultiplyExistingOrder =
-      order.applied_multiplier === null &&
-      Number.isFinite(createdAt) &&
-      createdAt <= EXISTING_ORDER_TICKET_MULTIPLIER_CUTOFF;
-    const desiredCount = shouldMultiplyExistingOrder
-      ? currentCount * EXISTING_ORDER_TICKET_MULTIPLIER
-      : currentCount;
-    const desiredLabel = shouldMultiplyExistingOrder
-      ? order.package_label.replace(/\d+\s+tickets?$/i, `${desiredCount} tickets`)
-      : order.package_label;
+    const selectedPackage = packages.find((item) => item.id === order.package_id);
+    const desiredCount = selectedPackage?.participations ?? currentCount;
+    const desiredLabel = selectedPackage?.label ?? order.package_label;
 
-    const ticketRows = await db
+    let ticketRows = await db
       .prepare('SELECT ticket_number FROM order_tickets WHERE order_id = ? ORDER BY id ASC')
       .bind(order.id)
       .all<{ ticket_number: string }>();
-    const currentTickets = (ticketRows.results ?? []).map((row) => row.ticket_number);
+    let currentTickets = (ticketRows.results ?? []).map((row) => row.ticket_number);
 
     if (currentTickets.length < desiredCount) {
       await fillOrderTicketsToCount(db, order.id, desiredCount);
 
-      const updatedTicketCount = await db
-        .prepare('SELECT COUNT(*) AS total FROM order_tickets WHERE order_id = ?')
+      ticketRows = await db
+        .prepare('SELECT ticket_number FROM order_tickets WHERE order_id = ? ORDER BY id ASC')
         .bind(order.id)
-        .first<{ total: number }>();
-      if (Number(updatedTicketCount?.total ?? 0) !== desiredCount) {
+        .all<{ ticket_number: string }>();
+      currentTickets = (ticketRows.results ?? []).map((row) => row.ticket_number);
+
+      if (currentTickets.length !== desiredCount) {
         const assignedTickets = await countAssignedTickets(db);
         const remainingCapacity = Math.max(RAFFLE_MAX_PARTICIPATIONS - assignedTickets, 0);
         throw new Error(
           `Solo quedan ${remainingCapacity} tickets disponibles de ${RAFFLE_MAX_PARTICIPATIONS} para el sorteo.`,
         );
       }
-
-      if (shouldMultiplyExistingOrder) {
-        await db.batch([
-          db
-            .prepare('UPDATE orders SET participations = ?, package_label = ? WHERE id = ?')
-            .bind(desiredCount, desiredLabel, order.id),
-          db
-            .prepare(
-              'INSERT OR IGNORE INTO order_ticket_adjustments (order_id, multiplier, applied_at) VALUES (?, ?, ?)',
-            )
-            .bind(order.id, EXISTING_ORDER_TICKET_MULTIPLIER, new Date().toISOString()),
-        ]);
-      }
-      continue;
     }
 
-    if (shouldMultiplyExistingOrder) {
-      await db.batch([
+    const statements: D1PreparedStatement[] = [];
+
+    if (currentTickets.length > desiredCount) {
+      statements.push(
+        db
+          .prepare(`
+            DELETE FROM order_tickets
+            WHERE order_id = ?
+              AND id NOT IN (
+                SELECT id
+                FROM order_tickets
+                WHERE order_id = ?
+                ORDER BY id ASC
+                LIMIT ?
+              )
+          `)
+          .bind(order.id, order.id, desiredCount),
+      );
+    }
+
+    if (currentCount !== desiredCount || order.package_label !== desiredLabel) {
+      statements.push(
         db
           .prepare('UPDATE orders SET participations = ?, package_label = ? WHERE id = ?')
           .bind(desiredCount, desiredLabel, order.id),
-        db
-          .prepare(
-            'INSERT OR IGNORE INTO order_ticket_adjustments (order_id, multiplier, applied_at) VALUES (?, ?, ?)',
-          )
-          .bind(order.id, EXISTING_ORDER_TICKET_MULTIPLIER, new Date().toISOString()),
-      ]);
+      );
     }
 
-    if (currentTickets.length > desiredCount) {
-      const extraTickets = currentTickets.slice(desiredCount);
-      if (extraTickets.length > 0) {
-        await db.batch(
-          extraTickets.map((ticketNumber) =>
-            db.prepare('DELETE FROM order_tickets WHERE order_id = ? AND ticket_number = ?').bind(order.id, ticketNumber),
-          ),
-        );
-      }
+    if (statements.length > 0) {
+      await db.batch(statements);
     }
   }
 }
