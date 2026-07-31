@@ -23,7 +23,6 @@ interface BenefitSearchSummary {
 interface WinnerPreview {
   fullName: string;
   ticketNumber: string;
-  packageLabel: string;
 }
 
 interface SaleMethodOption {
@@ -638,7 +637,7 @@ interface SaleMethodOption {
               <p class="admin-copy">
                 {{
                   animatedWinnerPreview()
-                    ? animatedWinnerPreview()?.ticketNumber + ' · ' + animatedWinnerPreview()?.packageLabel
+                    ? animatedWinnerPreview()?.ticketNumber
                     : 'Usa el boton para iniciar el sorteo ponderado por tickets.'
                 }}
               </p>
@@ -1196,7 +1195,6 @@ export class AdminPage implements OnDestroy {
           this.animatedWinnerPreview.set({
             fullName: response.winner.fullName,
             ticketNumber: response.winner.ticketNumber,
-            packageLabel: response.winner.packageLabel,
           });
           this.isDrawingWinner.set(false);
           this.showToast('success', 'Ganador seleccionado', response.message);
@@ -1546,7 +1544,6 @@ export class AdminPage implements OnDestroy {
       order.order.ticketNumbers.map((ticketNumber) => ({
         fullName: order.participant.fullName,
         ticketNumber,
-        packageLabel: order.order.packageLabel,
       })),
     );
   }
