@@ -1736,7 +1736,7 @@ p {
   position: absolute;
   inset: 0;
   background: linear-gradient(120deg, transparent 20%, rgba(255, 255, 255, 0.45) 50%, transparent 80%);
-  animation: winnerSweep 1.6s linear infinite;
+  animation: winnerSweep 0.5s linear infinite;
 }
 
 .winner-draw-spinner__halo {
@@ -1761,7 +1761,7 @@ p {
   border-radius: 999px;
   background: linear-gradient(180deg, var(--fk-coral), var(--fk-sky));
   box-shadow: 0 0 0 10px rgba(91, 166, 216, 0.08);
-  animation: winnerPulse 1.05s ease-in-out infinite;
+  animation: winnerPulse 0.4s ease-in-out infinite;
 }
 
 .winner-draw-spinner h3,
@@ -1771,12 +1771,6 @@ p {
   font-size: clamp(2rem, 4vw, 2.8rem);
   line-height: 0.95;
   color: var(--fk-sky-deep);
-}
-
-.winner-draw-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
 }
 
 .winner-reveal-card__ticket {
@@ -1909,7 +1903,6 @@ p {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .winner-draw-stats,
   .winner-reveal-grid {
     grid-template-columns: minmax(0, 1fr);
   }

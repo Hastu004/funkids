@@ -644,17 +644,6 @@ interface SaleMethodOption {
               </p>
             </div>
 
-            <div class="winner-draw-stats">
-              <article class="meta-card">
-                <span>Clientes habilitados</span>
-                <strong>{{ eligiblePaidCustomersCount() }}</strong>
-              </article>
-              <article class="meta-card">
-                <span>Tickets habilitados</span>
-                <strong>{{ eligiblePaidTicketsCount() }}</strong>
-              </article>
-            </div>
-
             <div class="admin-inline-actions">
               <button class="button primary" type="button" (click)="startWinnerDraw()" [disabled]="isDrawingWinner()">
                 {{ isDrawingWinner() ? 'Barajando tickets...' : 'Sortear ahora' }}
@@ -1196,7 +1185,7 @@ export class AdminPage implements OnDestroy {
     this.startWinnerAnimation(ticketPool);
 
     const drawStartedAt = Date.now();
-    const minimumAnimationMs = 3200;
+    const minimumAnimationMs = 6400;
 
     this.adminApi.drawWinner().subscribe({
       next: (response) => {
@@ -1567,7 +1556,7 @@ export class AdminPage implements OnDestroy {
     this.winnerAnimationTimer = setInterval(() => {
       const nextIndex = Math.floor(Math.random() * pool.length);
       this.animatedWinnerPreview.set(pool[nextIndex] ?? pool[0] ?? null);
-    }, 110);
+    }, 30);
   }
 
   private clearWinnerAnimation() {

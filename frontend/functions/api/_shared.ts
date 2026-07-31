@@ -309,11 +309,11 @@ type AdminBenefitSearchStatus = 'available' | 'consumed' | 'all';
 
 
 const packages = [
-  { id: 'pkg_2000' as const, amount: 1000, participations: 1, label: '$1.000 · 1 ticket' },
-  { id: 'pkg_5000' as const, amount: 2000, participations: 3, label: '$2.000 · 3 tickets' },
-  { id: 'pkg_4000' as const, amount: 4000, participations: 5, label: '$4.000 · 5 tickets' },
-  { id: 'pkg_15000' as const, amount: 15000, participations: 10, label: '$15.000 · 10 tickets' },
-  { id: 'pkg_30000' as const, amount: 30000, participations: 25, label: '$30.000 · 25 tickets' },
+  { id: 'pkg_2000' as const, amount: 1000, participations: 10, label: '$1.000 · 10 tickets' },
+  { id: 'pkg_5000' as const, amount: 2000, participations: 30, label: '$2.000 · 30 tickets' },
+  { id: 'pkg_4000' as const, amount: 4000, participations: 50, label: '$4.000 · 50 tickets' },
+  { id: 'pkg_15000' as const, amount: 15000, participations: 100, label: '$15.000 · 100 tickets' },
+  { id: 'pkg_30000' as const, amount: 30000, participations: 250, label: '$30.000 · 250 tickets' },
 ];
 
 const RAFFLE_MAX_PARTICIPATIONS = 10000;
@@ -415,7 +415,7 @@ export function getLandingData() {
         title: 'IV. Mecanica de participacion',
         paragraphs: [
           'La participacion se obtiene mediante la compra de participaciones digitales bajo las siguientes modalidades.',
-          '$1.000: 1 participacion. $2.000: 3 participaciones. $4.000: 5 participaciones. $15.000: 10 participaciones. $30.000: 25 participaciones.',
+          '$1.000: 10 participaciones. $2.000: 30 participaciones. $4.000: 50 participaciones. $15.000: 100 participaciones. $30.000: 250 participaciones.',
           'El maximo total sera de 10.000 participaciones.',
           'Cada participacion sera registrada en una base de datos unica y numerada.',
         ],
@@ -2055,12 +2055,24 @@ async function releaseOrderTickets(db: D1Database, orderId: string) {
 
 async function ensurePaidOrderTicketsConsistency(db: D1Database) {
   const paidOrders = await db
-    .prepare('SELECT id, participations FROM orders WHERE status = ?')
+    .prepare('SELECT id, package_id, package_label, participations FROM orders WHERE status = ?')
     .bind('paid')
-    .all<{ id: string; participations: number }>();
+    .all<{ id: string; package_id: PackageId; package_label: string; participations: number }>();
 
   for (const order of paidOrders.results ?? []) {
-    const desiredCount = Math.max(0, Number(order.participations ?? 0));
+    const selectedPackage = packages.find((item) => item.id === order.package_id);
+    const desiredCount = Math.max(0, selectedPackage?.participations ?? Number(order.participations ?? 0));
+    const desiredLabel = selectedPackage
+      ? order.package_label.replace(/\d+\s+tickets?$/i, `${desiredCount} tickets`)
+      : order.package_label;
+
+    if (Number(order.participations) !== desiredCount || order.package_label !== desiredLabel) {
+      await db
+        .prepare('UPDATE orders SET participations = ?, package_label = ? WHERE id = ?')
+        .bind(desiredCount, desiredLabel, order.id)
+        .run();
+    }
+
     const ticketRows = await db
       .prepare('SELECT ticket_number FROM order_tickets WHERE order_id = ? ORDER BY id ASC')
       .bind(order.id)
