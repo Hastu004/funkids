@@ -29,6 +29,13 @@ CREATE TABLE IF NOT EXISTS order_tickets (
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS order_ticket_adjustments (
+  order_id TEXT PRIMARY KEY,
+  multiplier INTEGER NOT NULL,
+  applied_at TEXT NOT NULL,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS webpay_transactions (
   order_id TEXT PRIMARY KEY,
   buy_order TEXT NOT NULL UNIQUE,
@@ -94,6 +101,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_rut ON orders(rut);
 CREATE INDEX IF NOT EXISTS idx_orders_benefit_consumed_at ON orders(benefit_consumed_at);
 CREATE INDEX IF NOT EXISTS idx_order_tickets_order_id ON order_tickets(order_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_order_tickets_ticket_number ON order_tickets(ticket_number);
+CREATE INDEX IF NOT EXISTS idx_order_ticket_adjustments_applied_at ON order_ticket_adjustments(applied_at);
 CREATE INDEX IF NOT EXISTS idx_webpay_transactions_token ON webpay_transactions(token);
 CREATE INDEX IF NOT EXISTS idx_webpay_transactions_buy_order ON webpay_transactions(buy_order);
 CREATE INDEX IF NOT EXISTS idx_webpay_transactions_session_id ON webpay_transactions(session_id);
