@@ -1,4 +1,5 @@
 import { connect } from 'cloudflare:sockets';
+import { ORDER_TICKET_BACKUP_2026_07_31 } from './_ticket-backup-2026-07-31';
 
 export type PaymentMethod = 'transbank' | 'cash' | 'transfer' | 'debit' | 'credit';
 export type PackageId = 'pkg_2000' | 'pkg_5000' | 'pkg_4000' | 'pkg_15000' | 'pkg_30000';
@@ -317,6 +318,7 @@ const packages = [
 ];
 
 const RAFFLE_MAX_PARTICIPATIONS = 10000;
+const ORDER_TICKET_BACKUP_REPAIR_ID = 'restore-order-tickets-from-backup-2026-07-31-v1';
 
 const SALES_CLOSE_AT = Date.parse('2026-08-01T00:00:00-04:00');
 const SALES_CLOSE_MESSAGE = 'La venta de tickets finalizo el 31 de julio de 2026 a las 23:59 (hora de Chile).';
@@ -1536,12 +1538,19 @@ async function ensureOrdersSchema(db: D1Database) {
         payment_label TEXT NOT NULL
       )
     `),
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS data_repairs (
+        id TEXT PRIMARY KEY,
+        applied_at TEXT NOT NULL
+      )
+    `),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_channel ON orders(channel)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_email ON orders(email)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_rut ON orders(rut)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_benefit_consumed_at ON orders(benefit_consumed_at)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_data_repairs_applied_at ON data_repairs(applied_at)'),
   ]);
 
   const tableInfo = await db.prepare('PRAGMA table_info(orders)').all<{ name: string }>();
@@ -2099,24 +2108,70 @@ async function fillOrderTicketsToCount(db: D1Database, orderId: string, desiredC
     .run();
 }
 
+async function restoreOrderTicketsFromBackup(db: D1Database) {
+  const appliedRepair = await db
+    .prepare('SELECT id FROM data_repairs WHERE id = ? LIMIT 1')
+    .bind(ORDER_TICKET_BACKUP_REPAIR_ID)
+    .first<{ id: string }>();
+  if (appliedRepair) {
+    return;
+  }
+
+  const backupOrderIds = ORDER_TICKET_BACKUP_2026_07_31.map((entry) => entry.orderId);
+  const orderPlaceholders = backupOrderIds.map(() => '?').join(', ');
+  const existingOrdersResult = await db
+    .prepare(`SELECT id FROM orders WHERE id IN (${orderPlaceholders})`)
+    .bind(...backupOrderIds)
+    .all<{ id: string }>();
+  const existingOrderIds = new Set((existingOrdersResult.results ?? []).map((order) => order.id));
+  const existingBackupEntries = ORDER_TICKET_BACKUP_2026_07_31.filter((entry) => existingOrderIds.has(entry.orderId));
+
+  if (existingBackupEntries.length === 0) {
+    return;
+  }
+
+  const existingBackupOrderIds = existingBackupEntries.map((entry) => entry.orderId);
+  const expectedTicketNumbers = existingBackupEntries.flatMap((entry) => [...entry.ticketNumbers]);
+  const existingOrderPlaceholders = existingBackupOrderIds.map(() => '?').join(', ');
+  const ticketPlaceholders = expectedTicketNumbers.map(() => '?').join(', ');
+  const appliedAt = new Date().toISOString();
+
+  await db.batch([
+    db
+      .prepare(`
+        DELETE FROM order_tickets
+        WHERE order_id IN (${existingOrderPlaceholders})
+           OR ticket_number IN (${ticketPlaceholders})
+      `)
+      .bind(...existingBackupOrderIds, ...expectedTicketNumbers),
+    ...existingBackupEntries.map((entry) =>
+      db
+        .prepare('UPDATE orders SET participations = ?, package_label = ? WHERE id = ?')
+        .bind(entry.ticketNumbers.length, entry.packageLabel, entry.orderId),
+    ),
+    ...existingBackupEntries.flatMap((entry) =>
+      entry.ticketNumbers.map((ticketNumber) =>
+        db.prepare('INSERT INTO order_tickets (order_id, ticket_number) VALUES (?, ?)').bind(entry.orderId, ticketNumber),
+      ),
+    ),
+    db.prepare('INSERT INTO data_repairs (id, applied_at) VALUES (?, ?)').bind(ORDER_TICKET_BACKUP_REPAIR_ID, appliedAt),
+  ]);
+}
+
 async function ensurePaidOrderTicketsConsistency(db: D1Database) {
   await ensureOrdersSchema(db);
+  await restoreOrderTicketsFromBackup(db);
 
   const paidOrders = await db
-    .prepare('SELECT id, package_id, package_label, participations FROM orders WHERE status = ?')
+    .prepare('SELECT id, participations FROM orders WHERE status = ?')
     .bind('paid')
     .all<{
       id: string;
-      package_id: PackageId;
-      package_label: string;
       participations: number;
     }>();
 
   for (const order of paidOrders.results ?? []) {
-    const currentCount = Math.max(0, Number(order.participations ?? 0));
-    const selectedPackage = packages.find((item) => item.id === order.package_id);
-    const desiredCount = selectedPackage?.participations ?? currentCount;
-    const desiredLabel = selectedPackage?.label ?? order.package_label;
+    const desiredCount = Math.max(0, Number(order.participations ?? 0));
 
     let ticketRows = await db
       .prepare('SELECT ticket_number FROM order_tickets WHERE order_id = ? ORDER BY id ASC')
@@ -2159,14 +2214,6 @@ async function ensurePaidOrderTicketsConsistency(db: D1Database) {
               )
           `)
           .bind(order.id, order.id, desiredCount),
-      );
-    }
-
-    if (currentCount !== desiredCount || order.package_label !== desiredLabel) {
-      statements.push(
-        db
-          .prepare('UPDATE orders SET participations = ?, package_label = ? WHERE id = ?')
-          .bind(desiredCount, desiredLabel, order.id),
       );
     }
 
