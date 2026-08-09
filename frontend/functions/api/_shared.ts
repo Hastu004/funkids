@@ -320,16 +320,16 @@ const packages = [
 const RAFFLE_MAX_PARTICIPATIONS = 10000;
 const ORDER_TICKET_BACKUP_REPAIR_ID = 'restore-order-tickets-from-backup-2026-07-31-v1';
 
-const SALES_CLOSE_AT = Date.parse('2026-08-01T00:00:00-04:00');
-const SALES_CLOSE_MESSAGE = 'La venta de tickets finalizo el 31 de julio de 2026 a las 23:59 (hora de Chile).';
+const RAFFLE_SALES_AVAILABLE = false;
+const SALES_CLOSE_MESSAGE = 'Este sorteo ya no está disponible. Estamos trabajando en un próximo sorteo.';
 
 export function getLandingData() {
   return {
     brand: 'FunKids',
     hero: {
-      badge: 'Bases legales del sorteo',
-      title: 'Compra tus tickets.',
-      description: 'La compra requiere un correo valido y el pago se realiza online con Webpay.',
+      badge: 'Sorteo finalizado',
+      title: 'Este sorteo ya no está disponible.',
+      description: 'Estamos trabajando en un próximo sorteo.',
     },
     raffle: {
       title: 'Cumpleaños Soñado Fun Kids',
@@ -3658,11 +3658,7 @@ function normalizePublicAppUrl(raw: string) {
 }
 
 function isSalesClosed() {
-  if (!Number.isFinite(SALES_CLOSE_AT)) {
-    return false;
-  }
-
-  return Date.now() >= SALES_CLOSE_AT;
+  return !RAFFLE_SALES_AVAILABLE;
 }
 
 async function signAdminToken(profile: AdminUserConfig, config: AdminConfig) {

@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
 import { routes } from './app.routes';
+import { HomePage } from './home-page';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -24,5 +25,15 @@ describe('App', () => {
     expect(compiled.textContent).toContain('Inicio');
     expect(compiled.textContent).toContain('Bases legales');
     expect(compiled.textContent).toContain('Login');
+  });
+
+  it('should show the closed raffle notice without a purchase form', () => {
+    const fixture = TestBed.createComponent(HomePage);
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.textContent).toContain('Este sorteo ya no está disponible.');
+    expect(compiled.textContent).toContain('Estamos trabajando en un próximo sorteo.');
+    expect(compiled.querySelector('form')).toBeNull();
   });
 });

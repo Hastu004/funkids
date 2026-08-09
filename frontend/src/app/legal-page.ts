@@ -15,8 +15,7 @@ import { LandingApi } from './landing-api';
           <h1>{{ landing.raffle.title }}</h1>
           <p class="lead">A continuacion se presenta la informacion completa de las bases legales del sorteo.</p>
           <div class="hero-actions">
-            <a class="button primary" routerLink="/comprar">Comprar tickets</a>
-            <a class="button secondary" routerLink="/">Volver al inicio</a>
+            <a class="button primary" routerLink="/">Volver al inicio</a>
           </div>
         </div>
 

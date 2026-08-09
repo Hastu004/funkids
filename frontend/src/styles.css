@@ -56,6 +56,60 @@ select {
   scroll-margin-top: 5.25rem;
 }
 
+.raffle-unavailable {
+  display: grid;
+  place-items: center;
+  min-height: min(68vh, 680px);
+  padding-top: clamp(2.5rem, 7vw, 5.5rem);
+  padding-bottom: clamp(2rem, 6vw, 4rem);
+}
+
+.raffle-unavailable__card {
+  width: min(100%, 850px);
+  padding: clamp(2rem, 6vw, 4.5rem);
+  border: 1px solid var(--fk-card-border);
+  border-radius: clamp(2rem, 5vw, 3.5rem);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.74), rgba(238, 248, 255, 0.58));
+  box-shadow: 0 28px 80px rgba(49, 56, 75, 0.12);
+  backdrop-filter: blur(16px);
+  text-align: center;
+}
+
+.raffle-unavailable__card h1 {
+  max-width: 13ch;
+  margin: 0 auto;
+  font-size: clamp(2.8rem, 7vw, 5.3rem);
+}
+
+.raffle-unavailable__message {
+  margin: 1.35rem auto 0.7rem;
+  color: var(--fk-plum);
+  font-size: clamp(1.45rem, 3.2vw, 2.2rem);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.raffle-unavailable__support {
+  max-width: 48ch;
+  margin: 0 auto 1.6rem;
+  color: #6e7592;
+  line-height: 1.65;
+}
+
+.closed-raffle-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.7fr);
+  gap: 1rem;
+  align-items: start;
+  padding-top: 0;
+  padding-bottom: 3rem;
+}
+
+.closed-raffle-content .trust-card {
+  position: sticky;
+  top: 7rem;
+}
+
 .ambient-background {
   position: fixed;
   inset: 0;
@@ -1833,6 +1887,14 @@ p {
 }
 
 @media (max-width: 1100px) {
+  .closed-raffle-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .closed-raffle-content .trust-card {
+    position: static;
+  }
+
   .checkout-layout {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1947,6 +2009,24 @@ p {
 }
 
 @media (max-width: 720px) {
+  .raffle-unavailable {
+    min-height: auto;
+    padding-top: 1.25rem;
+  }
+
+  .raffle-unavailable__card {
+    padding: 1.65rem 1.05rem;
+    border-radius: 1.75rem;
+  }
+
+  .raffle-unavailable__card h1 {
+    font-size: clamp(2.25rem, 11vw, 3.2rem);
+  }
+
+  .raffle-unavailable__message {
+    font-size: 1.35rem;
+  }
+
   .field-grid,
   .checkout-summary,
   .hero-logo-words,
